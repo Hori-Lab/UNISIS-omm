@@ -28,7 +28,7 @@ def build_by_seq(seq, number, box_size, forcefield):
     name_map = {'A': 'ADE', 'C': 'CYT', 'G': 'GUA', 'U': 'URA'}
 
     ite = int(number**(1./3))
-    print ite
+    print(ite)
     distance = box_size / ite
     num_add = ite**3
     topo = app.Topology()
@@ -162,7 +162,7 @@ parser.add_argument('-o','--output', type=str, default='md.out',
                     help='status and energy output')
 parser.add_argument('-x','--frequency', type=int, default='10000',
                     help='output and restart frequency')
-parser.add_argument('-n','--step', type=long, default='10000',
+parser.add_argument('-n','--step', type=int, default='10000',
                     help='Number of step [10000]')
 parser.add_argument('-R','--restart', action='store_true',
                     help='flag to restart simulation')
@@ -196,22 +196,22 @@ T_unitless = simu.temp * KELVIN_TO_KT
 simu.epsilon = 296.0736276 - 619.2813716 * T_unitless + 531.2826741 * T_unitless**2 - 180.0369914 * T_unitless**3;
 #simu.l_Bjerrum = 1./(simu.epsilon * unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB * simu.temp)
 simu.l_Bjerrum = 332.0637*unit.angstroms / simu.epsilon
-print "Bjerrum length  ", simu.l_Bjerrum / T_unitless
+print("Bjerrum length  ", simu.l_Bjerrum / T_unitless)
 simu.Q = simu.b * T_unitless * unit.elementary_charge**2 / simu.l_Bjerrum
-print "Phosphate charge   ", -simu.Q
+print("Phosphate charge   ", -simu.Q)
 simu.kappa = unit.sqrt (4*3.14159 * simu.l_Bjerrum * 2*simu.Kconc*6.022e-7 / (T_unitless * unit.angstrom**3))
-print "kappa   ", simu.kappa
+print("kappa   ", simu.kappa)
 
 forcefield = app.ForceField('rna_cg1.xml')
 topology = None
 positions = None
 
 if args.pdb != None:
-    print "Reading PDB file ..."
+    print("Reading PDB file ...")
     pdb = app.PDBFile(args.pdb)
     topology, positions = AllAtom2CoarseGrain(pdb, forcefield)
 elif args.sequence != None:
-    print "Building from sequence %s ..." % args.sequence
+    print("Building from sequence %s ..." % args.sequence)
     #N_RNA = args.RNA_conc * 6.022e-10 * args.box_size**3
     #N_RNA_added = (int(N_RNA**(1./3)))**3
     #N_RNA_added = 27
@@ -219,11 +219,11 @@ elif args.sequence != None:
     #real_conc = N_RNA_added / (6.022e-10 * args.box_size**3)
     real_conc = args.RNA_conc
     simu.box = (N_RNA_added / (real_conc * 6.022e-10))**(1./3) * unit.angstrom
-    print "Box size    %f A" % (simu.box/unit.angstrom)
-    print "Numbers added   %d ----> %f microM" % (N_RNA_added, real_conc)
+    print("Box size    %f A" % (simu.box/unit.angstrom))
+    print("Numbers added   %d ----> %f microM" % (N_RNA_added, real_conc))
     topology, positions = build_by_seq(args.sequence, N_RNA_added, simu.box, forcefield)
 else:
-    print "Need at least structure or sequence !!!"
+    print("Need at least structure or sequence !!!")
     sys.exit()
 
 topology.setPeriodicBoxVectors([[simu.box.value_in_unit(unit.nanometers),0,0], [0,simu.box.value_in_unit(unit.nanometers),0], [0,0,simu.box.value_in_unit(unit.nanometers)]])
@@ -430,8 +430,8 @@ if (HbAUforce.getNumDonors() > 0 and HbAUforce.getNumAcceptors() > 0):
         for ind2, res2 in enumerate(list_acceptorAU):
             if res2 in same_chain_list[res1] and abs(res1-res2) < 5:
                 HbAUforce.addExclusion(ind1, ind2)
-    print ("   A-U:  %d A,   %d U" % (HbAUforce.getNumDonors(), HbAUforce.getNumAcceptors()))
-    print ("         %d exclusion" % HbAUforce.getNumExclusions())
+    print("   A-U:  %d A,   %d U" % (HbAUforce.getNumDonors(), HbAUforce.getNumAcceptors()))
+    print("         %d exclusion" % HbAUforce.getNumExclusions())
     system.addForce(HbAUforce)
 
 if (HbGCforce.getNumDonors() > 0 and HbGCforce.getNumAcceptors() > 0):
@@ -439,8 +439,8 @@ if (HbGCforce.getNumDonors() > 0 and HbGCforce.getNumAcceptors() > 0):
         for ind2, res2 in enumerate(list_acceptorGC):
             if res2 in same_chain_list[res1] and abs(res1-res2) < 5:
                 HbGCforce.addExclusion(ind1, ind2)
-    print ("   G-C:  %d G,   %d C" % (HbGCforce.getNumDonors(), HbGCforce.getNumAcceptors()))
-    print ("         %d exclusion" % HbGCforce.getNumExclusions())
+    print("   G-C:  %d G,   %d C" % (HbGCforce.getNumDonors(), HbGCforce.getNumAcceptors()))
+    print("         %d exclusion" % HbGCforce.getNumExclusions())
     system.addForce(HbGCforce)
 
 if (HbGUforce.getNumDonors() > 0 and HbGUforce.getNumAcceptors() > 0):
@@ -448,8 +448,8 @@ if (HbGUforce.getNumDonors() > 0 and HbGUforce.getNumAcceptors() > 0):
         for ind2, res2 in enumerate(list_acceptorGU):
             if res2 in same_chain_list[res1] and abs(res1-res2) < 5:
                 HbGUforce.addExclusion(ind1, ind2)
-    print ("   G-U:  %d G,   %d U" % (HbGUforce.getNumDonors(), HbGUforce.getNumAcceptors()))
-    print ("         %d exclusion" % HbGUforce.getNumExclusions())
+    print("   G-U:  %d G,   %d U" % (HbGUforce.getNumDonors(), HbGUforce.getNumAcceptors()))
+    print("         %d exclusion" % HbGUforce.getNumExclusions())
     system.addForce(HbGUforce)
 
 ########## Tertiary Hbond
@@ -600,7 +600,7 @@ if simu.restart == False:
     simulation.loadState(args.chkpoint)
     boxvector = diag([simu.box/unit.angstrom for i in range(3)]) * unit.angstrom
     simulation.context.setPeriodicBoxVectors(*boxvector)
-    print simulation.usesPeriodicBoundaryConditions()
+    print(simulation.usesPeriodicBoundaryConditions())
 
     positions = simulation.context.getState(getPositions=True).getPositions()
     newpost = []
@@ -623,17 +623,17 @@ if simu.restart == False:
 
     simulation.context.setVelocitiesToTemperature(simu.temp)
 else:
-    print "Loading checkpoint ..."
+    print("Loading checkpoint ...")
     simulation.loadCheckpoint(args.res_file)
 
 simulation.reporters.append(app.DCDReporter(args.traj, args.frequency))
 simulation.reporters.append(app.StateDataReporter(args.output, args.frequency, step=True, potentialEnergy=True, temperature=True, remainingTime=True, totalSteps=simu.Nstep, separator='  '))
 simulation.reporters.append(EnergyReporter(args.energy, args.frequency))
-simulation.reporters.append(app.CheckpointReporter(args.res_file, long(args.frequency)*100))
+simulation.reporters.append(app.CheckpointReporter(args.res_file, int(args.frequency)*100))
 
 print('Running ...')
 t0 = time.time()
 simulation.step(simu.Nstep)
 #simulation.saveState('checkpoint.xml')
 prodtime = time.time() - t0
-print "Simulation speed: % .2e steps/day" % (86400*simu.Nstep/(prodtime))
+print("Simulation speed: % .2e steps/day" % (86400*simu.Nstep/(prodtime)))
