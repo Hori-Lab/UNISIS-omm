@@ -15,7 +15,7 @@ def prev_and_next(iterable):
     prevs, items, nexts = it.tee(iterable, 3)
     prevs = it.chain([None], prevs)
     nexts = it.chain(it.islice(nexts, 1, None), [None])
-    return it.izip(prevs, items, nexts)
+    return zip(prevs, items, nexts)
 
 def atm_index(res):
     #return res.atoms[0].index
@@ -27,7 +27,7 @@ def build_by_seq(seq, number, box_size, forcefield):
     bl = 3.41*unit.angstrom
     name_map = {'A': 'ADE', 'C': 'CYT', 'G': 'GUA', 'U': 'URA'}
 
-    ite = int(number**(1./3))
+    ite = round(number**(1./3))
     print(ite)
     distance = box_size / ite
     num_add = ite**3
