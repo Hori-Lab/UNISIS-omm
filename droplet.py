@@ -148,8 +148,8 @@ parser.add_argument('-K','--monovalent_concentration', type=float, default='100.
 #                    help='Box length (A) [80.0]')
 parser.add_argument('-c','--cutoff', type=float, default='30.',
                     help='Electrostatic cutoff (A) [30.0]')
-parser.add_argument('-H','--hbond_energy', type=float, default='2.22',
-                    help='Hbond strength (kcal/mol) [2.22]')
+parser.add_argument('-H','--hbond_energy', type=float, default='1.67',
+                    help='Hbond strength (kcal/mol) [1.67]')
 parser.add_argument('-b','--hbond_file', type=str,
                     help='file storing tertiary Hbond')
 parser.add_argument('-T','--temperature', type=float, default='20.',
