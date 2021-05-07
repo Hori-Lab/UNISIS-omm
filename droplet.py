@@ -168,6 +168,8 @@ parser.add_argument('-R','--restart', action='store_true',
                     help='flag to restart simulation')
 parser.add_argument('-k','--chkpoint', type=str, default='checkpoint.xml',
                     help='initial xml state')
+parser.add_argument('-i','--initpdb', type=str,
+                    help='initial structure CG PDB')
 parser.add_argument('-r','--res_file', type=str, default='checkpnt.chk',
                     help='checkpoint file for restart')
 args = parser.parse_args()
@@ -598,7 +600,13 @@ integrator = omm.LangevinIntegrator(simu.temp, 0.5/unit.picosecond, 50*unit.femt
 simulation = app.Simulation(topology, system, integrator)
 
 if simu.restart == False:
-    simulation.context.setPositions(positions)
+
+    if args.initpdb is not None:
+        simulation.context.setPositions(app.PDBFile(args.initpdb).positions)
+
+    else:
+        simulation.context.setPositions(positions)
+
     #simulation.loadState(args.chkpoint)
     boxvector = diag([simu.box/unit.angstrom for i in range(3)]) * unit.angstrom
     simulation.context.setPeriodicBoxVectors(*boxvector)
