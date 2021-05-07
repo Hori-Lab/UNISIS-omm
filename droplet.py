@@ -210,6 +210,7 @@ if args.pdb != None:
     print("Reading PDB file ...")
     pdb = app.PDBFile(args.pdb)
     topology, positions = AllAtom2CoarseGrain(pdb, forcefield)
+
 elif args.sequence != None:
     print("Building from sequence %s ..." % args.sequence)
     #N_RNA = args.RNA_conc * 6.022e-10 * args.box_size**3
@@ -222,6 +223,7 @@ elif args.sequence != None:
     print("Box size    %f A" % (simu.box/unit.angstrom))
     print("Numbers added   %d ----> %f microM" % (N_RNA_added, real_conc))
     topology, positions = build_by_seq(args.sequence, N_RNA_added, simu.box, forcefield)
+
 else:
     print("Need at least structure or sequence !!!")
     sys.exit()
@@ -596,32 +598,38 @@ integrator = omm.LangevinIntegrator(simu.temp, 0.5/unit.picosecond, 50*unit.femt
 simulation = app.Simulation(topology, system, integrator)
 
 if simu.restart == False:
-    #simulation.context.setPositions(positions)
-    simulation.loadState(args.chkpoint)
+    simulation.context.setPositions(positions)
+    #simulation.loadState(args.chkpoint)
     boxvector = diag([simu.box/unit.angstrom for i in range(3)]) * unit.angstrom
     simulation.context.setPeriodicBoxVectors(*boxvector)
-    print(simulation.usesPeriodicBoundaryConditions())
+    #print(simulation.usesPeriodicBoundaryConditions())
 
-    positions = simulation.context.getState(getPositions=True).getPositions()
-    newpost = []
-    for pos in positions:
-        #pos[0] = pos[0] * simu.box / (150*unit.nanometers)
-        #pos[1] = pos[1] * simu.box / (150*unit.nanometers)
-        #pos[2] = pos[2] * simu.box / (150*unit.nanometers)
+#    positions = simulation.context.getState(getPositions=True).getPositions()
+#    newpost = []
+#    for pos in positions:
+#        #pos[0] = pos[0] * simu.box / (150*unit.nanometers)
+#        #pos[1] = pos[1] * simu.box / (150*unit.nanometers)
+#        #pos[2] = pos[2] * simu.box / (150*unit.nanometers)
+#
+#        newpost.append([pos[0]*simu.box/(150*unit.nanometers), pos[1]*simu.box/(150*unit.nanometers), pos[2]*simu.box/(150*unit.nanometers)])
+#
+#    #simulation.context.setPositions(positions)
+#    simulation.context.setPositions(newpost)
+#    #print "Initial energy   %f   kcal/mol" % (simulation.context.getState(getEnergy=True).getPotentialEnergy() / unit.kilocalorie_per_mole)
 
-        newpost.append([pos[0]*simu.box/(150*unit.nanometers), pos[1]*simu.box/(150*unit.nanometers), pos[2]*simu.box/(150*unit.nanometers)])
-
-    #simulation.context.setPositions(positions)
-    simulation.context.setPositions(newpost)
-    #print "Initial energy   %f   kcal/mol" % (simulation.context.getState(getEnergy=True).getPotentialEnergy() / unit.kilocalorie_per_mole)
+    # Write PDB before minimization
+    state = simulation.context.getState(getPositions=True)
+    app.PDBFile.writeFile(topology, state.getPositions(), open("before_minimize.pdb", "w"), keepIds=True)
 
     print('Minimizing ...')
     simulation.minimizeEnergy(1*unit.kilocalorie_per_mole, 10000)
 
-    #state = simulation.context.getState(getPositions=True)
-    #app.PDBFile.writeFile(topology, state.getPositions(), open("input.pdb", "w"), keepIds=True)
+    # Write PDB after minimization
+    state = simulation.context.getState(getPositions=True)
+    app.PDBFile.writeFile(topology, state.getPositions(), open("after_minimize.pdb", "w"), keepIds=True)
 
     simulation.context.setVelocitiesToTemperature(simu.temp)
+
 else:
     print("Loading checkpoint ...")
     simulation.loadCheckpoint(args.res_file)
