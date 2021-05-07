@@ -166,12 +166,13 @@ parser.add_argument('-n','--step', type=int, default='10000',
                     help='Number of step [10000]')
 parser.add_argument('-R','--restart', action='store_true',
                     help='flag to restart simulation')
-parser.add_argument('-k','--chkpoint', type=str, default='checkpoint.xml',
-                    help='initial xml state')
-parser.add_argument('-i','--initpdb', type=str,
-                    help='initial structure CG PDB')
 parser.add_argument('-r','--res_file', type=str, default='checkpnt.chk',
                     help='checkpoint file for restart')
+
+parser_init = parser.add_mutually_exclusive_group(required=False)
+parser_init.add_argument('-k','--chkpoint', type=str, help='initial xml state')
+parser_init.add_argument('-i','--initpdb', type=str, help='initial structure CG PDB')
+
 args = parser.parse_args()
 
 class simu:    ### structure to group all simulation parameter
@@ -601,29 +602,32 @@ simulation = app.Simulation(topology, system, integrator)
 
 if simu.restart == False:
 
-    if args.initpdb is not None:
+    if args.chkpoint is not None:
+        print('Warning: Check the code carefully before using chkpoint option (-k).')
+        print('         The scaling of position is hard-coded.')
+        simulation.loadState(args.chkpoint)
+
+        positions = simulation.context.getState(getPositions=True).getPositions()
+        newpost = []
+        for pos in positions:
+            #pos[0] = pos[0] * simu.box / (150*unit.nanometers)
+            #pos[1] = pos[1] * simu.box / (150*unit.nanometers)
+            #pos[2] = pos[2] * simu.box / (150*unit.nanometers)
+
+            newpost.append([pos[0]*simu.box/(150*unit.nanometers), pos[1]*simu.box/(150*unit.nanometers), pos[2]*simu.box/(150*unit.nanometers)])
+
+            simulation.context.setPositions(newpost)
+            #print "Initial energy   %f   kcal/mol" % (simulation.context.getState(getEnergy=True).getPotentialEnergy() / unit.kilocalorie_per_mole)
+
+    elif args.initpdb is not None:
         simulation.context.setPositions(app.PDBFile(args.initpdb).positions)
 
     else:
         simulation.context.setPositions(positions)
 
-    #simulation.loadState(args.chkpoint)
     boxvector = diag([simu.box/unit.angstrom for i in range(3)]) * unit.angstrom
     simulation.context.setPeriodicBoxVectors(*boxvector)
     #print(simulation.usesPeriodicBoundaryConditions())
-
-#    positions = simulation.context.getState(getPositions=True).getPositions()
-#    newpost = []
-#    for pos in positions:
-#        #pos[0] = pos[0] * simu.box / (150*unit.nanometers)
-#        #pos[1] = pos[1] * simu.box / (150*unit.nanometers)
-#        #pos[2] = pos[2] * simu.box / (150*unit.nanometers)
-#
-#        newpost.append([pos[0]*simu.box/(150*unit.nanometers), pos[1]*simu.box/(150*unit.nanometers), pos[2]*simu.box/(150*unit.nanometers)])
-#
-#    #simulation.context.setPositions(positions)
-#    simulation.context.setPositions(newpost)
-#    #print "Initial energy   %f   kcal/mol" % (simulation.context.getState(getEnergy=True).getPotentialEnergy() / unit.kilocalorie_per_mole)
 
     # Write PDB before minimization
     state = simulation.context.getState(getPositions=True)
