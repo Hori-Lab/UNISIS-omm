@@ -22,6 +22,9 @@ def atm_index(res):
     for atom in res.atoms():
         return atom.index
 
+def get_atom(res):
+    for atom in res.atoms():
+        return atom
 
 def build_by_seq(seq, number, box_size, forcefield):
     bl = 3.41*unit.angstrom
@@ -33,9 +36,6 @@ def build_by_seq(seq, number, box_size, forcefield):
     num_add = ite**3
     topo = app.Topology()
     positions = []
-    def get_atom(res):
-        for atom in res.atoms():
-            return atom
 
     Nrepeat = 1
     #### process sequence
@@ -69,6 +69,7 @@ def build_by_seq(seq, number, box_size, forcefield):
                         topo.addBond(get_atom(prev), get_atom(item))
 
     return topo, positions
+
 
 ###################################################################
 def AllAtom2CoarseGrain(pdb, forcefield):
@@ -138,8 +139,12 @@ KELVIN_TO_KT = unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB / unit.kil
 #print KELVIN_TO_KT
 
 parser = argparse.ArgumentParser(description='Coarse-grained simulation using OpenMM')
-parser.add_argument('-p','--pdb', type=str, help='pdb structure')
-parser.add_argument('-f','--sequence', type=str, help='input structure')
+
+parser_build = parser.add_mutually_exclusive_group(required=True)
+parser_build.add_argument('-p','--pdb', type=str, help='pdb structure')
+parser_build.add_argument('-f','--sequence', type=str, help='input structure')
+parser_build.add_argument('-P','--cgpdb', type=str, help='CG pdb structure')
+
 parser.add_argument('-C','--RNA_conc', type=float, default='10.',
                     help='RNA concentration (microM) [10.0]')
 parser.add_argument('-K','--monovalent_concentration', type=float, default='100.',
@@ -226,6 +231,33 @@ elif args.sequence != None:
     print("Box size    %f A" % (simu.box/unit.angstrom))
     print("Numbers added   %d ----> %f microM" % (N_RNA_added, real_conc))
     topology, positions = build_by_seq(args.sequence, N_RNA_added, simu.box, forcefield)
+
+elif args.cgpdb != None:
+
+    cgpdb = app.PDBFile(args.cgpdb)
+
+    topology = cgpdb.getTopology()
+    positions = cgpdb.getPositions()
+
+    name_map = {'A': 'ADE', 'C': 'CYT', 'G': 'GUA', 'U': 'URA'}
+
+    for c in topology.chains():
+        for prev, item, nxt in prev_and_next(c.residues()):
+
+            item.name = name_map[item.name]
+
+            if prev is None or nxt is None:
+                item.name += 'T'
+
+            if prev is not None:
+                topology.addBond(get_atom(prev), get_atom(item))
+
+    # Assume all the chains from the PDB are RNA
+    N_RNA_added = topology.getNumChains()
+    simu.box = (N_RNA_added / (args.RNA_conc * 6.022e-10))**(1./3) * unit.angstrom
+
+    print("Box size    %f A" % (simu.box/unit.angstrom))
+    print("Numbers added   %d ----> %f microM" % (N_RNA_added, args.RNA_conc))
 
 else:
     print("Need at least structure or sequence !!!")
