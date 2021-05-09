@@ -8,7 +8,7 @@ import itertools as it
 import time
 import sys
 import argparse
-from math import sqrt, acos, atan2, ceil
+from math import sqrt, acos, atan2, ceil, pi
 import re
 
 def prev_and_next(iterable):
@@ -70,70 +70,69 @@ def build_by_seq(seq, number, box_size, forcefield):
 
     return topo, positions
 
-
 ###################################################################
-def AllAtom2CoarseGrain(pdb, forcefield):
-    name_map = {'A': 'ADE', 'C': 'CYT', 'G': 'GUA', 'U': 'URA'}
-    cg_topo = app.Topology()
-    chain = cg_topo.addChain('X')
-    beads = []
-    cg_positions = []
-    bead_indx = -1
-    prevbead = None
-
-    for i, aa_res in enumerate(pdb.topology.residues()):
-        resname = name_map[aa_res.name]
-        if i == 0 or i == pdb.topology.getNumResidues() - 1:
-            resname += "T"
-
-        #print "Res %s %s" % (resname, aa_res.id)
-        cg_res = cg_topo.addResidue(resname, chain, aa_res.id)
-
-        count = 0
-        bead_x = 0.*unit.angstrom
-        bead_y = 0.*unit.angstrom
-        bead_z = 0.*unit.angstrom
-
-        for aa_atom in aa_res.atoms():
-            #print aa_atom.name
-            if "'" in aa_atom.name and (not "H" in aa_atom.name):
-                count += 1
-                bead_x += pdb.positions[aa_atom.index][0]
-                bead_y += pdb.positions[aa_atom.index][1]
-                bead_z += pdb.positions[aa_atom.index][2]
-            else:
-                continue
-
-        bead_x /= count
-        bead_y /= count
-        bead_z /= count
-
-        bead_indx += 1
-        element = None
-        beadname = None
-
-        if "ADE" in cg_res.name:
-            element = forcefield._atomTypes["0"].element
-            beadname = "A"
-        elif "GUA" in cg_res.name:
-            element = forcefield._atomTypes["1"].element
-            beadname = "G"
-        elif "CYT" in cg_res.name:
-            element = forcefield._atomTypes["2"].element
-            beadname = "C"
-        elif "URA" in cg_res.name:
-            element = forcefield._atomTypes["3"].element
-            beadname = "U"
-
-        beads.append(cg_topo.addAtom(beadname, element, cg_res))
-        cg_positions.append([bead_x, bead_y, bead_z])
-
-        if prevbead != None:
-            cg_topo.addBond(beads[bead_indx], beads[prevbead])
-
-        prevbead = bead_indx
-
-    return cg_topo, cg_positions
+#def AllAtom2CoarseGrain(pdb, forcefield):
+#    name_map = {'A': 'ADE', 'C': 'CYT', 'G': 'GUA', 'U': 'URA'}
+#    cg_topo = app.Topology()
+#    chain = cg_topo.addChain('X')
+#    beads = []
+#    cg_positions = []
+#    bead_indx = -1
+#    prevbead = None
+#
+#    for i, aa_res in enumerate(pdb.topology.residues()):
+#        resname = name_map[aa_res.name]
+#        if i == 0 or i == pdb.topology.getNumResidues() - 1:
+#            resname += "T"
+#
+#        #print "Res %s %s" % (resname, aa_res.id)
+#        cg_res = cg_topo.addResidue(resname, chain, aa_res.id)
+#
+#        count = 0
+#        bead_x = 0.*unit.angstrom
+#        bead_y = 0.*unit.angstrom
+#        bead_z = 0.*unit.angstrom
+#
+#        for aa_atom in aa_res.atoms():
+#            #print aa_atom.name
+#            if "'" in aa_atom.name and (not "H" in aa_atom.name):
+#                count += 1
+#                bead_x += pdb.positions[aa_atom.index][0]
+#                bead_y += pdb.positions[aa_atom.index][1]
+#                bead_z += pdb.positions[aa_atom.index][2]
+#            else:
+#                continue
+#
+#        bead_x /= count
+#        bead_y /= count
+#        bead_z /= count
+#
+#        bead_indx += 1
+#        element = None
+#        beadname = None
+#
+#        if "ADE" in cg_res.name:
+#            element = forcefield._atomTypes["0"].element
+#            beadname = "A"
+#        elif "GUA" in cg_res.name:
+#            element = forcefield._atomTypes["1"].element
+#            beadname = "G"
+#        elif "CYT" in cg_res.name:
+#            element = forcefield._atomTypes["2"].element
+#            beadname = "C"
+#        elif "URA" in cg_res.name:
+#            element = forcefield._atomTypes["3"].element
+#            beadname = "U"
+#
+#        beads.append(cg_topo.addAtom(beadname, element, cg_res))
+#        cg_positions.append([bead_x, bead_y, bead_z])
+#
+#        if prevbead != None:
+#            cg_topo.addBond(beads[bead_indx], beads[prevbead])
+#
+#        prevbead = bead_indx
+#
+#    return cg_topo, cg_positions
 
 KELVIN_TO_KT = unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB / unit.kilocalorie_per_mole
 #print KELVIN_TO_KT
@@ -145,14 +144,14 @@ parser_build.add_argument('-p','--pdb', type=str, help='pdb structure')
 parser_build.add_argument('-f','--sequence', type=str, help='input structure')
 parser_build.add_argument('-P','--cgpdb', type=str, help='CG pdb structure')
 
-parser.add_argument('-C','--RNA_conc', type=float, default='10.',
-                    help='RNA concentration (microM) [10.0]')
-parser.add_argument('-K','--monovalent_concentration', type=float, default='100.',
-                    help='Monovalent concentration (mM) [100.0]')
+#parser.add_argument('-C','--RNA_conc', type=float, default='10.',
+#                    help='RNA concentration (microM) [10.0]')
+#parser.add_argument('-K','--monovalent_concentration', type=float, default='100.',
+#                    help='Monovalent concentration (mM) [100.0]')
 #parser.add_argument('-v','--box_size', type=float, default='80.',
 #                    help='Box length (A) [80.0]')
-parser.add_argument('-c','--cutoff', type=float, default='30.',
-                    help='Electrostatic cutoff (A) [30.0]')
+#parser.add_argument('-c','--cutoff', type=float, default='30.',
+#                    help='Electrostatic cutoff (A) [30.0]')
 parser.add_argument('-H','--hbond_energy', type=float, default='1.67',
                     help='Hbond strength (kcal/mol) [1.67]')
 parser.add_argument('-b','--hbond_file', type=str,
@@ -174,6 +173,12 @@ parser.add_argument('-R','--restart', action='store_true',
 parser.add_argument('-r','--res_file', type=str, default='checkpnt.chk',
                     help='checkpoint file for restart')
 
+# Arguments for tracer
+parser.add_argument('--tp_eps', type=float,
+                    help='tracer particle epsilon')
+parser.add_argument('--tp_sig', type=float,
+                    help='tracer particle sigma')
+
 parser_init = parser.add_mutually_exclusive_group(required=False)
 parser_init.add_argument('-k','--chkpoint', type=str, help='initial xml state')
 parser_init.add_argument('-i','--initpdb', type=str, help='initial structure CG PDB')
@@ -181,63 +186,68 @@ parser_init.add_argument('-i','--initpdb', type=str, help='initial structure CG 
 args = parser.parse_args()
 
 class simu:    ### structure to group all simulation parameter
-    box = 0.
+    #box = 0.
     temp = 0.
     Kconc = 0.
     Nstep = 0
-    cutoff = 0.
-    epsilon = 0.
-    b = 4.38178046 * unit.angstrom / unit.elementary_charge
+    #cutoff = 0.
+    #epsilon = 0.
+    #b = 4.38178046 * unit.angstrom / unit.elementary_charge
     restart = False
-#    list = None ### list cannot be initialized here!!
+
+    # Spherical constraint
+    const_k = 1.0 * unit.kilocalorie_per_mole / unit.angstroms**2
+    const_r0 = 0. * unit.angstrom
 
 #simu.list = []
 #simu.box = args.box_size * unit.angstrom
 Hbond_Uhb = args.hbond_energy*unit.kilocalorie_per_mole
 simu.temp = (args.temperature + 273.15)*unit.kelvin
 simu.Nstep = args.step
-simu.cutoff = args.cutoff*unit.angstrom
-simu.Kconc = args.monovalent_concentration
+#simu.cutoff = args.cutoff*unit.angstrom
+#simu.Kconc = args.monovalent_concentration
 simu.restart = args.restart
 
-T_unitless = simu.temp * KELVIN_TO_KT
-simu.epsilon = 296.0736276 - 619.2813716 * T_unitless + 531.2826741 * T_unitless**2 - 180.0369914 * T_unitless**3;
-#simu.l_Bjerrum = 1./(simu.epsilon * unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB * simu.temp)
-simu.l_Bjerrum = 332.0637*unit.angstroms / simu.epsilon
-print("Bjerrum length  ", simu.l_Bjerrum / T_unitless)
-simu.Q = simu.b * T_unitless * unit.elementary_charge**2 / simu.l_Bjerrum
-print("Phosphate charge   ", -simu.Q)
-simu.kappa = unit.sqrt (4*3.14159 * simu.l_Bjerrum * 2*simu.Kconc*6.022e-7 / (T_unitless * unit.angstrom**3))
-print("kappa   ", simu.kappa)
+#T_unitless = simu.temp * KELVIN_TO_KT
+#simu.epsilon = 296.0736276 - 619.2813716 * T_unitless + 531.2826741 * T_unitless**2 - 180.0369914 * T_unitless**3;
+##simu.l_Bjerrum = 1./(simu.epsilon * unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB * simu.temp)
+#simu.l_Bjerrum = 332.0637*unit.angstroms / simu.epsilon
+#print("Bjerrum length  ", simu.l_Bjerrum / T_unitless)
+#simu.Q = simu.b * T_unitless * unit.elementary_charge**2 / simu.l_Bjerrum
+#print("Phosphate charge   ", -simu.Q)
+#simu.kappa = unit.sqrt (4*3.14159 * simu.l_Bjerrum * 2*simu.Kconc*6.022e-7 / (T_unitless * unit.angstrom**3))
+#print("kappa   ", simu.kappa)
 
-forcefield = app.ForceField('rna_cg1.xml')
+forcefield = app.ForceField('rna_cg_tracer.xml')
 topology = None
 positions = None
 
-if args.pdb != None:
-    print("Reading PDB file ...")
-    pdb = app.PDBFile(args.pdb)
-    topology, positions = AllAtom2CoarseGrain(pdb, forcefield)
+#if args.pdb != None:
+#    print("pdb option does not work in this version")
+#    sys.exit(2)
+#    #print("Reading PDB file ...")
+#    #pdb = app.PDBFile(args.pdb)
+#    #topology, positions = AllAtom2CoarseGrain(pdb, forcefield)
 
-elif args.sequence != None:
-    print("Building from sequence %s ..." % args.sequence)
-    #N_RNA = args.RNA_conc * 6.022e-10 * args.box_size**3
-    #N_RNA_added = (int(N_RNA**(1./3)))**3
-    #N_RNA_added = 27
-    N_RNA_added = 64
-    #real_conc = N_RNA_added / (6.022e-10 * args.box_size**3)
-    real_conc = args.RNA_conc
-    simu.box = (N_RNA_added / (real_conc * 6.022e-10))**(1./3) * unit.angstrom
-    print("Box size    %f A" % (simu.box/unit.angstrom))
-    print("Numbers added   %d ----> %f microM" % (N_RNA_added, real_conc))
-    topology, positions = build_by_seq(args.sequence, N_RNA_added, simu.box, forcefield)
+#elif args.sequence != None:
+#    print("Building from sequence %s ..." % args.sequence)
+#    #N_RNA = args.RNA_conc * 6.022e-10 * args.box_size**3
+#    #N_RNA_added = (int(N_RNA**(1./3)))**3
+#    #N_RNA_added = 27
+#    N_RNA_added = 64
+#    #real_conc = N_RNA_added / (6.022e-10 * args.box_size**3)
+#    real_conc = args.RNA_conc
+#    simu.box = (N_RNA_added / (real_conc * 6.022e-10))**(1./3) * unit.angstrom
+#    print("Box size    %f A" % (simu.box/unit.angstrom))
+#    print("Numbers added   %d ----> %f microM" % (N_RNA_added, real_conc))
+#    topology, positions = build_by_seq(args.sequence, N_RNA_added, simu.box, forcefield)
 
-elif args.cgpdb != None:
+if args.cgpdb != None:
 
     cgpdb = app.PDBFile(args.cgpdb)
 
     topology = cgpdb.getTopology()
-    positions = cgpdb.getPositions()
+    pdb_positions = cgpdb.getPositions()
 
     name_map = {'A': 'ADE', 'C': 'CYT', 'G': 'GUA', 'U': 'URA'}
 
@@ -252,18 +262,51 @@ elif args.cgpdb != None:
             if prev is not None:
                 topology.addBond(get_atom(prev), get_atom(item))
 
+    # Move the center of mass to the origin
+    com = [0., 0., 0.] * unit.nanometer
+    for p in pdb_positions:
+        com += p
+    com /= len(pdb_positions)
+
+    positions = []
+    for p in pdb_positions:
+        positions.append(p - com)
+
+    # Check the distance to the most distal particle
+    r2max = 0. * unit.angstrom ** 2
+    for p in positions:
+        r2 = p[0]**2 + p[1]**2 + p[2]**2
+        if r2 > r2max:
+            r2max = r2
+
+    rmax = unit.sqrt(r2max).in_units_of(unit.angstrom)
+    print('The distance from the origin to the most distal particle: %s' % rmax)
+
+    simu.const_r0 = rmax + 10.*unit.angstrom
+    print('Set the radius of spherical constraint to be %s' % simu.const_r0) 
+
     # Assume all the chains from the PDB are RNA
     N_RNA_added = topology.getNumChains()
-    simu.box = (N_RNA_added / (args.RNA_conc * 6.022e-10))**(1./3) * unit.angstrom
 
-    print("Box size    %f A" % (simu.box/unit.angstrom))
-    print("Numbers added   %d ----> %f microM" % (N_RNA_added, args.RNA_conc))
+    #rad = (3. / (4.*pi) * N_RNA_added / (args.RNA_conc * 6.022e-10))**(1./3) * unit.angstrom
+    #print('rad=', rad)
+
+    real_conc = N_RNA_added / (6.022e-10 * 4. * pi * (simu.const_r0 / unit.angstrom)**3 / 3.)
+    print("Number of RNA   %d ----> %f mM" % (N_RNA_added, real_conc/1000.))
 
 else:
     print("Need at least structure or sequence !!!")
     sys.exit()
 
-topology.setPeriodicBoxVectors([[simu.box.value_in_unit(unit.nanometers),0,0], [0,simu.box.value_in_unit(unit.nanometers),0], [0,0,simu.box.value_in_unit(unit.nanometers)]])
+# Add tracer particles.
+n_tracer = 1
+element = app.Element.getBySymbol('Xe')
+chain = topology.addChain()
+for particle in range(n_tracer):
+    residue = topology.addResidue('TRC', chain)
+    topology.addAtom('X', element, residue)
+
+#topology.setPeriodicBoxVectors([[simu.box.value_in_unit(unit.nanometers),0,0], [0,simu.box.value_in_unit(unit.nanometers),0], [0,0,simu.box.value_in_unit(unit.nanometers)]])
 
 system = forcefield.createSystem(topology)
 
@@ -272,7 +315,7 @@ bondforce = omm.HarmonicBondForce()
 for bond in topology.bonds():
     bondforce.addBond(bond[0].index, bond[1].index, 5.9*unit.angstroms, 15.0*unit.kilocalorie_per_mole/(unit.angstrom**2))
 
-bondforce.setUsesPeriodicBoundaryConditions(True)
+bondforce.setUsesPeriodicBoundaryConditions(False)
 bondforce.setForceGroup(0)
 system.addForce(bondforce)
 
@@ -286,21 +329,60 @@ for chain in topology.chains():
 
         angleforce.addAngle(prev.index, item.index, nxt.index, 2.618*unit.radian, 10.0*unit.kilocalorie_per_mole/(unit.radians**2))
 
-angleforce.setUsesPeriodicBoundaryConditions(True)
+angleforce.setUsesPeriodicBoundaryConditions(False)
 angleforce.setForceGroup(1)
 system.addForce(angleforce)
 
+######### WCA force
+#WCA_cutoff = 10.*unit.angstroms
+#energy_function =  'step(sig-r) * ep * ((R6 - 2)*R6 + 1);'
+#energy_function += 'R6=(sig/r)^6;'
+#
+#WCAforce = omm.CustomNonbondedForce(energy_function)
+#WCAforce.addGlobalParameter('ep',  2.*unit.kilocalorie_per_mole)
+#WCAforce.addGlobalParameter('sig', WCA_cutoff)
+#
+#for atom in topology.atoms():
+#    WCAforce.addParticle([])
+#
+#for bond in topology.bonds():
+#    WCAforce.addExclusion(bond[0].index, bond[1].index)
+#
+#for chain in topology.chains():
+#    for prev, item, nxt in prev_and_next(chain.residues()):
+#        if prev == None or nxt == None:
+#            continue
+#        WCAforce.addExclusion(atm_index(prev), atm_index(nxt))
+#
+#WCAforce.setCutoffDistance(WCA_cutoff)
+#WCAforce.setForceGroup(2)
+#WCAforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffNonPeriodic)
+#system.addForce(WCAforce)
+
 ######## WCA force
-WCA_cutoff = 10.*unit.angstroms
 energy_function =  'step(sig-r) * ep * ((R6 - 2)*R6 + 1);'
 energy_function += 'R6=(sig/r)^6;'
+energy_function += 'ep=sqrt(ep1*ep2);'
+energy_function += 'sig=rad1+rad2;'
 
 WCAforce = omm.CustomNonbondedForce(energy_function)
-WCAforce.addGlobalParameter('ep',  2.*unit.kilocalorie_per_mole)
-WCAforce.addGlobalParameter('sig', WCA_cutoff)
+WCAforce.addPerParticleParameter("ep")
+WCAforce.addPerParticleParameter("rad")
 
-for atom in topology.atoms():
-    WCAforce.addParticle([])
+# Parameters
+RNA_ep = 2. * unit.kilocalorie_per_mole
+RNA_rad = 0.5 * 10. * unit.angstrom
+TP_ep = args.tp_eps * unit.kilocalorie_per_mole
+TP_rad = 0.5 * args.tp_sig * unit.angstrom
+
+for i, chain in enumerate(topology.chains()):
+    if i < N_RNA_added:
+        for atom in chain.atoms():
+            WCAforce.addParticle([RNA_ep, RNA_rad])
+
+    else:
+        for atom in chain.atoms():
+            WCAforce.addParticle([TP_ep, TP_rad])
 
 for bond in topology.bonds():
     WCAforce.addExclusion(bond[0].index, bond[1].index)
@@ -311,9 +393,9 @@ for chain in topology.chains():
             continue
         WCAforce.addExclusion(atm_index(prev), atm_index(nxt))
 
-WCAforce.setCutoffDistance(WCA_cutoff)
+WCAforce.setCutoffDistance(2 * max(RNA_rad, TP_rad))
 WCAforce.setForceGroup(2)
-WCAforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffPeriodic)
+WCAforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffNonPeriodic)
 system.addForce(WCAforce)
 
 ######## Debye-Huckel
@@ -370,7 +452,7 @@ HbAUforce.addGlobalParameter('theta2', theta2)
 HbAUforce.addGlobalParameter('phi1', phi1)
 HbAUforce.addGlobalParameter('phi2', phi2)
 HbAUforce.setCutoffDistance(cutoff)
-HbAUforce.setNonbondedMethod(omm.CustomHbondForce.CutoffPeriodic)
+HbAUforce.setNonbondedMethod(omm.CustomHbondForce.CutoffNonPeriodic)
 HbAUforce.setForceGroup(3)
 #HbAUforce.usesPeriodicBoundaryConditions()
 
@@ -387,7 +469,7 @@ HbGCforce.addGlobalParameter('theta2', theta2)
 HbGCforce.addGlobalParameter('phi1', phi1)
 HbGCforce.addGlobalParameter('phi2', phi2)
 HbGCforce.setCutoffDistance(cutoff)
-HbGCforce.setNonbondedMethod(omm.CustomHbondForce.CutoffPeriodic)
+HbGCforce.setNonbondedMethod(omm.CustomHbondForce.CutoffNonPeriodic)
 HbGCforce.setForceGroup(4)
 #HbGCforce.usesPeriodicBoundaryConditions()
 
@@ -402,11 +484,28 @@ HbGUforce.addGlobalParameter('theta2', theta2)
 HbGUforce.addGlobalParameter('phi1', phi1)
 HbGUforce.addGlobalParameter('phi2', phi2)
 HbGUforce.setCutoffDistance(cutoff)
-HbGUforce.setNonbondedMethod(omm.CustomHbondForce.CutoffPeriodic)
+HbGUforce.setNonbondedMethod(omm.CustomHbondForce.CutoffNonPeriodic)
 HbGUforce.setForceGroup(5)
 #HbGUforce.usesPeriodicBoundaryConditions()
 
-totalforcegroup = 5
+# constraint in a sphere
+energy_function  = 'const_k*max(0, r-const_r0)^2;'
+energy_function += 'r=sqrt(x*x+y*y+z*z)'
+
+constraint_force = omm.CustomExternalForce(energy_function)
+
+print('Set up the spherical constraint, k:', simu.const_k)
+print('Set up the spherical constraint, r0:', simu.const_r0)
+constraint_force.addGlobalParameter('const_k', simu.const_k)
+constraint_force.addGlobalParameter('const_r0', simu.const_r0)
+
+for particle in range(system.getNumParticles()):
+    constraint_force.addParticle(particle, [])
+
+constraint_force.setForceGroup(6)
+system.addForce(constraint_force)
+
+totalforcegroup = 6
 
 list_donorGC = []
 list_acceptorGC = []
@@ -488,6 +587,7 @@ if (HbGUforce.getNumDonors() > 0 and HbGUforce.getNumAcceptors() > 0):
     print("   G-U:  %d G,   %d U" % (HbGUforce.getNumDonors(), HbGUforce.getNumAcceptors()))
     print("         %d exclusion" % HbGUforce.getNumExclusions())
     system.addForce(HbGUforce)
+
 
 ########## Tertiary Hbond
 #if args.pdb != None and args.hbond_file != None:
@@ -655,19 +755,35 @@ if simu.restart == False:
         simulation.context.setPositions(app.PDBFile(args.initpdb).positions)
 
     else:
+        # Add position of the tracer particle
+        pos_tp = [0.0001, 0.0001, 0.0001] * unit.nanometer
+        # If the tracer particle is placed at the exact origin ([0,0,0]), 
+#       # then the minimization process causes an NaN issue. Do not know why.
+        print('A tracer particle is placed at ', pos_tp.in_units_of(unit.angstrom))
+        positions.append(pos_tp)
+
         simulation.context.setPositions(positions)
 
-    boxvector = diag([simu.box/unit.angstrom for i in range(3)]) * unit.angstrom
-    simulation.context.setPeriodicBoxVectors(*boxvector)
+    #boxvector = diag([simu.box/unit.angstrom for i in range(3)]) * unit.angstrom
+    #simulation.context.setPeriodicBoxVectors(*boxvector)
     #print(simulation.usesPeriodicBoundaryConditions())
 
+    print('Potential energy before minimization:', simulation.context.getState(getEnergy=True).getPotentialEnergy())
     # Write PDB before minimization
     state = simulation.context.getState(getPositions=True)
     app.PDBFile.writeFile(topology, state.getPositions(), open("before_minimize.pdb", "w"), keepIds=True)
 
+    ## Debug
+    #print('Check force before minimization')
+    #forces = simulation.context.getState(getForces=True).getForces()
+    #for i, f in enumerate(forces):
+    #    if unit.norm(f) > 100*unit.kilocalorie_per_mole/unit.angstrom:
+    ##          print(i, f.in_units_of(unit.kilocalorie_per_mole/unit.angstrom))
+
     print('Minimizing ...')
     simulation.minimizeEnergy(1*unit.kilocalorie_per_mole, 10000)
 
+    print('Potential energy after minimization:', simulation.context.getState(getEnergy=True).getPotentialEnergy())
     # Write PDB after minimization
     state = simulation.context.getState(getPositions=True)
     app.PDBFile.writeFile(topology, state.getPositions(), open("after_minimize.pdb", "w"), keepIds=True)
