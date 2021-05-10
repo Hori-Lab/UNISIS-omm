@@ -178,6 +178,8 @@ parser.add_argument('--tp_eps', type=float,
                     help='tracer particle epsilon')
 parser.add_argument('--tp_sig', type=float,
                     help='tracer particle sigma')
+parser.add_argument('--tp_out', type=str, default='tracer.out',
+                    help='Output tracer position file. Frequency same as energy output.')
 
 parser_init = parser.add_mutually_exclusive_group(required=False)
 parser_init.add_argument('-k','--chkpoint', type=str, help='initial xml state')
@@ -300,11 +302,19 @@ else:
 
 # Add tracer particles.
 n_tracer = 1
+tracer_ids = []  # To be used in TracerReporter
 element = app.Element.getBySymbol('Xe')
 chain = topology.addChain()
 for particle in range(n_tracer):
     residue = topology.addResidue('TRC', chain)
     topology.addAtom('X', element, residue)
+    tracer_ids.append(topology.getNumAtoms()-1)
+
+# Initial position of the tracer particle
+tracer_pos = [[0.0001, 0.0001, 0.0001] * unit.nanometer,]
+# If the tracer particle is placed at the exact origin ([0,0,0]), 
+# then the minimization process causes an NaN issue. Do not know why.
+
 
 #topology.setPeriodicBoxVectors([[simu.box.value_in_unit(unit.nanometers),0,0], [0,simu.box.value_in_unit(unit.nanometers),0], [0,0,simu.box.value_in_unit(unit.nanometers)]])
 
@@ -724,6 +734,31 @@ class EnergyReporter(object):
             self._out.write("  " + str(energy))
         self._out.write("\n")
 
+class TracerReporter(object):
+    def __init__ (self, file, reportInterval):
+        self._out = open(file, 'w')
+        self._reportInterval = reportInterval
+
+    def __del__ (self):
+        self._out.close()
+
+    def describeNextReport(self, simulation):
+        step = self._reportInterval - simulation.currentStep%self._reportInterval
+        return (step, False, False, False, True)
+        #return (step, position, velocity, force, energy)
+
+    def report(self, simulation, state):
+        energy = []
+        self._out.write(f"{simulation.currentStep:12d}")
+        state = simulation.context.getState(getPositions=True)
+        pos = state.getPositions()
+        for i, pos_init in zip(tracer_ids, tracer_pos):
+            p = pos[i]
+            d = unit.norm(p - pos_init)
+            p = p.value_in_unit(unit.angstrom)
+            self._out.write(f" {p[0]:8.3f} {p[1]:8.3f} {p[2]:8.3f} {d.value_in_unit(unit.angstrom):8.3f}")
+        self._out.write("\n")
+
 integrator = omm.LangevinIntegrator(simu.temp, 0.5/unit.picosecond, 50*unit.femtoseconds)
 #platform = omm.Platform.getPlatformByName('CUDA')
 #properties = {'CudaPrecision': 'mixed'}
@@ -755,12 +790,10 @@ if simu.restart == False:
         simulation.context.setPositions(app.PDBFile(args.initpdb).positions)
 
     else:
-        # Add position of the tracer particle
-        pos_tp = [0.0001, 0.0001, 0.0001] * unit.nanometer
-        # If the tracer particle is placed at the exact origin ([0,0,0]), 
-#       # then the minimization process causes an NaN issue. Do not know why.
-        print('A tracer particle is placed at ', pos_tp.in_units_of(unit.angstrom))
-        positions.append(pos_tp)
+
+        for p in tracer_pos:
+            print('A tracer particle is placed at ', p.in_units_of(unit.angstrom))
+            positions.append(p)
 
         simulation.context.setPositions(positions)
 
@@ -797,6 +830,7 @@ else:
 simulation.reporters.append(app.DCDReporter(args.traj, args.frequency))
 simulation.reporters.append(app.StateDataReporter(args.output, args.frequency, step=True, potentialEnergy=True, temperature=True, remainingTime=True, totalSteps=simu.Nstep, separator='  '))
 simulation.reporters.append(EnergyReporter(args.energy, args.frequency))
+simulation.reporters.append(TracerReporter(args.tp_out, args.frequency))
 simulation.reporters.append(app.CheckpointReporter(args.res_file, int(args.frequency)*100))
 
 print('Running ...')
