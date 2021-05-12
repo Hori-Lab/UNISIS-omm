@@ -10,6 +10,7 @@ import sys
 import argparse
 from math import sqrt, acos, atan2, ceil, pi
 import re
+import random
 
 def prev_and_next(iterable):
     prevs, items, nexts = it.tee(iterable, 3)
@@ -172,6 +173,8 @@ parser.add_argument('-R','--restart', action='store_true',
                     help='flag to restart simulation')
 parser.add_argument('-r','--res_file', type=str, default='checkpnt.chk',
                     help='checkpoint file for restart')
+parser.add_argument('--seed', type=int, default=None,
+                    help='Random number seed. Omit this to use sytem clock.')
 
 # Arguments for tracer
 parser.add_argument('--tp_eps', type=float,
@@ -180,6 +183,8 @@ parser.add_argument('--tp_sig', type=float,
                     help='tracer particle sigma')
 parser.add_argument('--tp_out', type=str, default='tracer.out',
                     help='Output tracer position file. Frequency same as energy output.')
+parser.add_argument('--tp_initrange', type=float, default=0.1,
+                    help='The range of initial coordinate for tracer particle as a fraction to the constraint sphere.')
 
 parser_init = parser.add_mutually_exclusive_group(required=False)
 parser_init.add_argument('-k','--chkpoint', type=str, help='initial xml state')
@@ -209,6 +214,10 @@ simu.Nstep = args.step
 #simu.cutoff = args.cutoff*unit.angstrom
 #simu.Kconc = args.monovalent_concentration
 simu.restart = args.restart
+
+if args.seed is not None:
+    print('Set random seed: ', args.seed)
+random.seed(args.seed)
 
 #T_unitless = simu.temp * KELVIN_TO_KT
 #simu.epsilon = 296.0736276 - 619.2813716 * T_unitless + 531.2826741 * T_unitless**2 - 180.0369914 * T_unitless**3;
@@ -300,21 +309,35 @@ else:
     print("Need at least structure or sequence !!!")
     sys.exit()
 
+print()
+
 # Add tracer particles.
 n_tracer = 1
+print(f"Number of tracer particles: {n_tracer}")
 tracer_ids = []  # To be used in TracerReporter
+tracer_pos = []
 element = app.Element.getBySymbol('Xe')
 chain = topology.addChain()
-for particle in range(n_tracer):
+rmax = simu.const_r0.value_in_unit(unit.angstrom) * args.tp_initrange
+print(f"Tracer particle positions: randomly placed within radius {rmax:6.2f} A.")
+for i in range(n_tracer):
     residue = topology.addResidue('TRC', chain)
     topology.addAtom('X', element, residue)
     tracer_ids.append(topology.getNumAtoms()-1)
 
-# Initial position of the tracer particle
-tracer_pos = [[0.0001, 0.0001, 0.0001] * unit.nanometer,]
-# If the tracer particle is placed at the exact origin ([0,0,0]), 
-# then the minimization process causes an NaN issue. Do not know why.
+    # Place randomly in the sphere of radius rmax
+    r = rmax * pow(random.uniform(0., 1.), 1/3)
+    x = random.normalvariate(0., 1.)
+    y = random.normalvariate(0., 1.)
+    z = random.normalvariate(0., 1.)
+    a = sqrt(x*x + y*y + z*z)
+    x = r * x / a
+    y = r * y / a
+    z = r * z / a
+    tracer_pos.append([x, y, z] * unit.angstrom)
+    print(f"Tracer particle {i} is placed at ({x:6.2f}, {y:6.2f}, {z:6.2f})")
 
+print()
 
 #topology.setPeriodicBoxVectors([[simu.box.value_in_unit(unit.nanometers),0,0], [0,simu.box.value_in_unit(unit.nanometers),0], [0,0,simu.box.value_in_unit(unit.nanometers)]])
 
@@ -505,7 +528,7 @@ energy_function += 'r=sqrt(x*x+y*y+z*z)'
 ## If a particle is placed at the origin (0,0,0),
 ## then use the following to prevent the singularity.
 ## See https://github.com/openmm/openmm/issues/3111#issuecomment-838828521
-#energy_function = 'const_k*max(0, rp)^2; rp=select(delta(r), 0, r-const_r0); r=sqrt(x*x+y*y+z*z)')
+#energy_function = 'const_k*max(0, rp)^2; rp=select(delta(r), 0, r-const_r0); r=sqrt(x*x+y*y+z*z)'
 
 constraint_force = omm.CustomExternalForce(energy_function)
 
@@ -764,6 +787,8 @@ class TracerReporter(object):
             self._out.write(f" {p[0]:8.3f} {p[1]:8.3f} {p[2]:8.3f} {d.value_in_unit(unit.angstrom):8.3f}")
         self._out.write("\n")
 
+tracer_reporter = TracerReporter(args.tp_out, args.frequency)
+
 integrator = omm.LangevinIntegrator(simu.temp, 0.5/unit.picosecond, 50*unit.femtoseconds)
 #platform = omm.Platform.getPlatformByName('CUDA')
 #properties = {'CudaPrecision': 'mixed'}
@@ -797,7 +822,6 @@ if simu.restart == False:
     else:
 
         for p in tracer_pos:
-            print('A tracer particle is placed at ', p.in_units_of(unit.angstrom))
             positions.append(p)
 
         simulation.context.setPositions(positions)
@@ -806,7 +830,9 @@ if simu.restart == False:
     #simulation.context.setPeriodicBoxVectors(*boxvector)
     #print(simulation.usesPeriodicBoundaryConditions())
 
-    print('Potential energy before minimization:', simulation.context.getState(getEnergy=True).getPotentialEnergy())
+    print()
+    print('Minimizing ...')
+    print('Potential energy before minimization:', simulation.context.getState(getEnergy=True).getPotentialEnergy().in_units_of(unit.kilocalorie_per_mole))
     # Write PDB before minimization
     state = simulation.context.getState(getPositions=True)
     app.PDBFile.writeFile(topology, state.getPositions(), open("before_minimize.pdb", "w"), keepIds=True)
@@ -818,15 +844,23 @@ if simu.restart == False:
     #    if unit.norm(f) > 100*unit.kilocalorie_per_mole/unit.angstrom:
     ##          print(i, f.in_units_of(unit.kilocalorie_per_mole/unit.angstrom))
 
-    print('Minimizing ...')
-    simulation.minimizeEnergy(1*unit.kilocalorie_per_mole, 10000)
+    simulation.minimizeEnergy(1*unit.kilocalorie_per_mole, 10000000)
 
-    print('Potential energy after minimization:', simulation.context.getState(getEnergy=True).getPotentialEnergy())
+    print('Potential energy after minimization:', simulation.context.getState(getEnergy=True).getPotentialEnergy().in_units_of(unit.kilocalorie_per_mole))
+
     # Write PDB after minimization
     state = simulation.context.getState(getPositions=True)
     app.PDBFile.writeFile(topology, state.getPositions(), open("after_minimize.pdb", "w"), keepIds=True)
 
     simulation.context.setVelocitiesToTemperature(simu.temp)
+
+    # Update the initial positions of tracer particles for calculating travel distance later.
+    pos = state.getPositions()
+    for i, j in enumerate(tracer_ids):
+        tracer_pos[i] = pos[j]
+        p = pos[j].value_in_unit(unit.angstrom)
+        tracer_reporter._out.write(f"           0 {p[0]:8.3f} {p[1]:8.3f} {p[2]:8.3f} {0.0:8.3f}\n")
+        print(f"Tracer particle {i} has been moved to ({p[0]:6.2f}, {p[1]:6.2f}, {p[2]:6.2f})")
 
 else:
     print("Loading checkpoint ...")
@@ -835,9 +869,10 @@ else:
 simulation.reporters.append(app.DCDReporter(args.traj, args.frequency))
 simulation.reporters.append(app.StateDataReporter(args.output, args.frequency, step=True, potentialEnergy=True, temperature=True, remainingTime=True, totalSteps=simu.Nstep, separator='  '))
 simulation.reporters.append(EnergyReporter(args.energy, args.frequency))
-simulation.reporters.append(TracerReporter(args.tp_out, args.frequency))
+simulation.reporters.append(tracer_reporter)
 simulation.reporters.append(app.CheckpointReporter(args.res_file, int(args.frequency)*100))
 
+print()
 print('Running ...')
 t0 = time.time()
 simulation.step(simu.Nstep)
