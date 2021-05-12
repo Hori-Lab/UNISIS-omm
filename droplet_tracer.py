@@ -502,6 +502,11 @@ HbGUforce.setForceGroup(5)
 energy_function  = 'const_k*max(0, r-const_r0)^2;'
 energy_function += 'r=sqrt(x*x+y*y+z*z)'
 
+## If a particle is placed at the origin (0,0,0),
+## then use the following to prevent the singularity.
+## See https://github.com/openmm/openmm/issues/3111#issuecomment-838828521
+#energy_function = 'const_k*max(0, rp)^2; rp=select(delta(r), 0, r-const_r0); r=sqrt(x*x+y*y+z*z)')
+
 constraint_force = omm.CustomExternalForce(energy_function)
 
 print('Set up the spherical constraint, k:', simu.const_k)
