@@ -885,7 +885,8 @@ t0 = time.time()
 nstep = 0
 if args.tp_terminate:
     # Terminate the simulation once a tracer approaches the spherical constraint
-    flg_exit = False
+    k = -1
+    d = 0.0
 
     while (nstep < simu.Nstep):
 
@@ -900,11 +901,13 @@ if args.tp_terminate:
         pos = simulation.context.getState(getPositions=True).getPositions()
         for i, j in enumerate(tracer_ids):
             d = unit.sqrt(pos[j][0]**2 + pos[j][1]**2 + pos[j][2]**2)
+
             if simu.const_r0 - d < simu.tp_terminate_dist:
-                flg_exit = True
+                k = i
                 break
 
-        if flg_exit:
+        if k >= 0:
+            print(f"Terminate simulation after tracer {k:d} reached d = {d.value_in_unit(unit.angstrom):6.2f} A at step = {nstep:d}.")
             break
 
 else:
