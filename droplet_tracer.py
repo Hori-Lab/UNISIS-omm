@@ -185,6 +185,8 @@ parser.add_argument('--tp_out', type=str, default='tracer.out',
                     help='Output tracer position file. Frequency same as energy output.')
 parser.add_argument('--tp_initrange', type=float, default=0.1,
                     help='The range of initial coordinate for tracer particle as a fraction to the constraint sphere.')
+parser.add_argument('--tp_terminate', action='store_true',
+                    help='Terminate the simulation once a tracer approaches the spherical boundary.')
 
 parser_init = parser.add_mutually_exclusive_group(required=False)
 parser_init.add_argument('-k','--chkpoint', type=str, help='initial xml state')
@@ -205,6 +207,10 @@ class simu:    ### structure to group all simulation parameter
     # Spherical constraint
     const_k = 1.0 * unit.kilocalorie_per_mole / unit.angstroms**2
     const_r0 = 0. * unit.angstrom
+
+    # Only if tp_terminate is True
+    tp_terminate_freq = 500   # Frequency to check if simulations should be terminated.
+    tp_terminate_dist = 10.0 * unit.angstrom  # The distance between TP and the spherical bondary. Once closer than this, terminate.
 
 #simu.list = []
 #simu.box = args.box_size * unit.angstrom
@@ -875,7 +881,36 @@ simulation.reporters.append(app.CheckpointReporter(args.res_file, int(args.frequ
 print()
 print('Running ...')
 t0 = time.time()
-simulation.step(simu.Nstep)
+
+nstep = 0
+if args.tp_terminate:
+    # Terminate the simulation once a tracer approaches the spherical constraint
+    flg_exit = False
+
+    while (nstep < simu.Nstep):
+
+        if nstep + simu.tp_terminate_freq > simu.Nstep:
+            simulation.step(simu.Nstep - nstep)
+            nstep = simu.Nstep
+
+        else:
+            simulation.step(simu.tp_terminate_freq)
+            nstep += simu.tp_terminate_freq
+
+        pos = simulation.context.getState(getPositions=True).getPositions()
+        for i, j in enumerate(tracer_ids):
+            d = unit.sqrt(pos[j][0]**2 + pos[j][1]**2 + pos[j][2]**2)
+            if simu.const_r0 - d < simu.tp_terminate_dist:
+                flg_exit = True
+                break
+
+        if flg_exit:
+            break
+
+else:
+    simulation.step(simu.Nstep)
+    nstep = simu.Nstep
+
 #simulation.saveState('checkpoint.xml')
 prodtime = time.time() - t0
-print("Simulation speed: % .2e steps/day" % (86400*simu.Nstep/(prodtime)))
+print("Simulation speed: % .2e steps/day" % (86400*nstep/(prodtime)))
