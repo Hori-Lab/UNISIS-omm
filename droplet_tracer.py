@@ -188,6 +188,11 @@ parser.add_argument('--tp_initrange', type=float, default=0.1,
 parser.add_argument('--tp_terminate', action='store_true',
                     help='Terminate the simulation once a tracer approaches the spherical boundary.')
 
+parser.add_argument('--platform', type=str, default=None,
+                    help='Platform')
+parser.add_argument('--CUDAdevice', type=str, default=None,
+                    help='CUDA device ID')
+
 parser_init = parser.add_mutually_exclusive_group(required=False)
 parser_init.add_argument('-k','--chkpoint', type=str, help='initial xml state')
 parser_init.add_argument('-i','--initpdb', type=str, help='initial structure CG PDB')
@@ -799,9 +804,20 @@ integrator = omm.LangevinIntegrator(simu.temp, 0.5/unit.picosecond, 50*unit.femt
 #platform = omm.Platform.getPlatformByName('CUDA')
 #properties = {'CudaPrecision': 'mixed'}
 
+if args.platform is not None:
+    platform = omm.Platform.getPlatformByName(args.platform)
+else:
+    platform = None
+
+if args.CUDAdevice is not None:
+    properties = {} 
+    properties["DeviceIndex"] = args.CUDAdevice
+else:
+    properties = None
+
 #simulation = app.Simulation(topology, system, integrator, platform)
-#simulation = app.Simulation(topology, system, integrator, platform, properties)
-simulation = app.Simulation(topology, system, integrator)
+simulation = app.Simulation(topology, system, integrator, platform, properties)
+#simulation = app.Simulation(topology, system, integrator)
 
 if simu.restart == False:
 
