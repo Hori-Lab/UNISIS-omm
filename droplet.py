@@ -436,8 +436,6 @@ HbGUforce.setForceGroup(totalforcegroup)
 print("Force group H-bond GU: ", totalforcegroup)
 #HbGUforce.usesPeriodicBoundaryConditions()
 
-totalforcegroup = 6
-
 list_donorGC = []
 list_acceptorGC = []
 list_donorAU = []
