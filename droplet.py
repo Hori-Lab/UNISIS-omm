@@ -709,6 +709,9 @@ simulation.reporters.append(EnergyReporter(args.energy, args.frequency))
 simulation.reporters.append(app.CheckpointReporter(args.res_file, int(args.frequency)*100))
 
 print('Running ...')
+sys.stdout.flush()
+sys.stderr.flush()
+
 t0 = time.time()
 simulation.step(simu.Nstep)
 #simulation.saveState('checkpoint.xml')
