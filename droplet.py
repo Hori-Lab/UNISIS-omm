@@ -147,8 +147,8 @@ parser_build.add_argument('-P','--cgpdb', type=str, help='CG pdb structure')
 
 parser.add_argument('-C','--RNA_conc', type=float, default='10.',
                     help='RNA concentration (microM) [10.0]')
-parser.add_argument('-K','--monovalent_concentration', type=float, default='100.',
-                    help='Monovalent concentration (mM) [100.0]')
+parser.add_argument('-K','--monovalent_concentration', type=float, default='-1.',
+                    help='Monovalent concentration (mM) [Default: no electrostatic]')
 #parser.add_argument('-v','--box_size', type=float, default='80.',
 #                    help='Box length (A) [80.0]')
 parser.add_argument('-c','--cutoff', type=float, default='30.',
@@ -183,7 +183,7 @@ args = parser.parse_args()
 class simu:    ### structure to group all simulation parameter
     box = 0.
     temp = 0.
-    Kconc = 0.
+    Kconc = -1.
     Nstep = 0
     cutoff = 0.
     epsilon = 0.
@@ -201,14 +201,22 @@ simu.Kconc = args.monovalent_concentration
 simu.restart = args.restart
 
 T_unitless = simu.temp * KELVIN_TO_KT
-simu.epsilon = 296.0736276 - 619.2813716 * T_unitless + 531.2826741 * T_unitless**2 - 180.0369914 * T_unitless**3;
-#simu.l_Bjerrum = 1./(simu.epsilon * unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB * simu.temp)
-simu.l_Bjerrum = 332.0637*unit.angstroms / simu.epsilon
-print("Bjerrum length  ", simu.l_Bjerrum / T_unitless)
-simu.Q = simu.b * T_unitless * unit.elementary_charge**2 / simu.l_Bjerrum
-print("Phosphate charge   ", -simu.Q)
-simu.kappa = unit.sqrt (4*3.14159 * simu.l_Bjerrum * 2*simu.Kconc*6.022e-7 / (T_unitless * unit.angstrom**3))
-print("kappa   ", simu.kappa)
+
+## Debye-Huckel is enabled if simu.Kconc is given (>= 0).
+if simu.Kconc >= 0.:
+    print("Electrostatic parameters:")
+    print("   [K] ", simu.Kconc, " mM")
+    simu.epsilon = 296.0736276 - 619.2813716 * T_unitless + 531.2826741 * T_unitless**2 - 180.0369914 * T_unitless**3;
+    print("   Dielectric constant ", simu.epsilon)
+    #simu.l_Bjerrum = 1./(simu.epsilon * unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB * simu.temp)
+    simu.l_Bjerrum = 332.0637*unit.angstroms / simu.epsilon
+    print("   Bjerrum length  ", simu.l_Bjerrum / T_unitless)
+    simu.Q = simu.b * T_unitless * unit.elementary_charge**2 / simu.l_Bjerrum
+    print("   Phosphate charge   ", -simu.Q)
+    simu.kappa = unit.sqrt (4*3.14159 * simu.l_Bjerrum * 2*simu.Kconc*6.022e-7 / (T_unitless * unit.angstrom**3))
+    print("   kappa   ", simu.kappa)
+    print("   Debye length ", 1.0/simu.kappa)
+    print("")
 
 forcefield = app.ForceField('rna_cg1.xml')
 topology = None
@@ -267,13 +275,17 @@ topology.setPeriodicBoxVectors([[simu.box.value_in_unit(unit.nanometers),0,0], [
 
 system = forcefield.createSystem(topology)
 
+totalforcegroup = -1
+
 ########## bond force
 bondforce = omm.HarmonicBondForce()
 for bond in topology.bonds():
     bondforce.addBond(bond[0].index, bond[1].index, 5.9*unit.angstroms, 15.0*unit.kilocalorie_per_mole/(unit.angstrom**2))
 
 bondforce.setUsesPeriodicBoundaryConditions(True)
-bondforce.setForceGroup(0)
+totalforcegroup += 1
+bondforce.setForceGroup(totalforcegroup)
+print("Force group bond: ", totalforcegroup)
 system.addForce(bondforce)
 
 ######### angle force
@@ -287,7 +299,9 @@ for chain in topology.chains():
         angleforce.addAngle(prev.index, item.index, nxt.index, 2.618*unit.radian, 10.0*unit.kilocalorie_per_mole/(unit.radians**2))
 
 angleforce.setUsesPeriodicBoundaryConditions(True)
-angleforce.setForceGroup(1)
+totalforcegroup += 1
+angleforce.setForceGroup(totalforcegroup)
+print("Force group angle: ", totalforcegroup)
 system.addForce(angleforce)
 
 ######## WCA force
@@ -312,31 +326,36 @@ for chain in topology.chains():
         WCAforce.addExclusion(atm_index(prev), atm_index(nxt))
 
 WCAforce.setCutoffDistance(WCA_cutoff)
-WCAforce.setForceGroup(2)
+totalforcegroup += 1
+WCAforce.setForceGroup(totalforcegroup)
+print("Force group WCA: ", totalforcegroup)
 WCAforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffPeriodic)
 system.addForce(WCAforce)
 
 ######## Debye-Huckel
-#DHforce = omm.CustomNonbondedForce("scale*exp(-kappa*r)/r")
-#DHforce.addGlobalParameter("scale", simu.l_Bjerrum * simu.Q**2 * unit.kilocalorie_per_mole / unit.elementary_charge**2)
-#DHforce.addGlobalParameter("kappa", simu.kappa)
-#
-#for atom in topology.atoms():
-#    DHforce.addParticle([])
-#
-#for bond in topology.bonds():
-#    DHforce.addExclusion(bond[0].index, bond[1].index)
-#
-#for chain in topology.chains():
-#    for prev, item, nxt in prev_and_next(chain.residues()):
-#        if prev == None or nxt == None:
-#            continue
-#        DHforce.addExclusion(atm_index(prev), atm_index(nxt))
-#
-#DHforce.setCutoffDistance(simu.cutoff)
-#DHforce.setForceGroup(3)
-#DHforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffPeriodic)
-#system.addForce(DHforce)
+if simu.Kconc >= 0.:
+    DHforce = omm.CustomNonbondedForce("scale*exp(-kappa*r)/r")
+    DHforce.addGlobalParameter("scale", simu.l_Bjerrum * simu.Q**2 * unit.kilocalorie_per_mole / unit.elementary_charge**2)
+    DHforce.addGlobalParameter("kappa", simu.kappa)
+    
+    for atom in topology.atoms():
+        DHforce.addParticle([])
+    
+    for bond in topology.bonds():
+        DHforce.addExclusion(bond[0].index, bond[1].index)
+    
+    for chain in topology.chains():
+        for prev, item, nxt in prev_and_next(chain.residues()):
+            if prev == None or nxt == None:
+                continue
+            DHforce.addExclusion(atm_index(prev), atm_index(nxt))
+    
+    DHforce.setCutoffDistance(simu.cutoff)
+    totalforcegroup += 1
+    DHforce.setForceGroup(totalforcegroup)
+    print("Force group Debye-Huckel: ", totalforcegroup)
+    DHforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffPeriodic)
+    system.addForce(DHforce)
 
 ###### Hbond
 energy_function =  "- kr*(distance(a1, d1) - r0)^2"
@@ -371,7 +390,9 @@ HbAUforce.addGlobalParameter('phi1', phi1)
 HbAUforce.addGlobalParameter('phi2', phi2)
 HbAUforce.setCutoffDistance(cutoff)
 HbAUforce.setNonbondedMethod(omm.CustomHbondForce.CutoffPeriodic)
-HbAUforce.setForceGroup(3)
+totalforcegroup += 1
+HbAUforce.setForceGroup(totalforcegroup)
+print("Force group H-bond AU: ", totalforcegroup)
 #HbAUforce.usesPeriodicBoundaryConditions()
 
 energy_functionGC = "3 * Uhb * exp(" + energy_function + ")"
@@ -388,7 +409,9 @@ HbGCforce.addGlobalParameter('phi1', phi1)
 HbGCforce.addGlobalParameter('phi2', phi2)
 HbGCforce.setCutoffDistance(cutoff)
 HbGCforce.setNonbondedMethod(omm.CustomHbondForce.CutoffPeriodic)
-HbGCforce.setForceGroup(4)
+totalforcegroup += 1
+HbGCforce.setForceGroup(totalforcegroup)
+print("Force group H-bond GC: ", totalforcegroup)
 #HbGCforce.usesPeriodicBoundaryConditions()
 
 HbGUforce = omm.CustomHbondForce(energy_functionAU)
@@ -403,10 +426,12 @@ HbGUforce.addGlobalParameter('phi1', phi1)
 HbGUforce.addGlobalParameter('phi2', phi2)
 HbGUforce.setCutoffDistance(cutoff)
 HbGUforce.setNonbondedMethod(omm.CustomHbondForce.CutoffPeriodic)
-HbGUforce.setForceGroup(5)
+totalforcegroup += 1
+HbGUforce.setForceGroup(totalforcegroup)
+print("Force group H-bond GU: ", totalforcegroup)
 #HbGUforce.usesPeriodicBoundaryConditions()
 
-totalforcegroup = 5
+totalforcegroup = 6
 
 list_donorGC = []
 list_acceptorGC = []
