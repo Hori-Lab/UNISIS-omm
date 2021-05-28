@@ -11,4 +11,10 @@
 #                    #--platform 'CUDA'\
 #                    #--CUDAdevice '0'\
 
-./droplet.py -f "(CAG)47" -C 20 -x 1 -n 10 -t md.dcd -o md.out -H 1.67 -i CAG47_200_md30_last6704.pdb -K 150.0 --cutoff 50.0
+./droplet.py -f "(CAG)47" -C 200 \
+             -x 10000 -n 100000000 \
+             -t md.dcd -o md.out \
+             -H 1.67 \
+             -i CAG47_200_md30_last6704.pdb \
+             -K 150.0 --cutoff 50.0 \
+             1> out 2> err
