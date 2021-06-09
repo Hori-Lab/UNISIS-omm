@@ -205,12 +205,12 @@ simu.cutoff = args.cutoff*unit.angstrom
 simu.Kconc = args.monovalent_concentration
 simu.restart = args.restart
 
-T_unitless = simu.temp * KELVIN_TO_KT
-
 ## Debye-Huckel is enabled if simu.Kconc is given (>= 0).
 if simu.Kconc >= 0.:
     print("Electrostatic parameters:")
     print("   [K] ", simu.Kconc, " mM")
+    T_unitless = simu.temp * KELVIN_TO_KT
+    print("   T ", T_unitless, " kT")
     simu.epsilon = 296.0736276 - 619.2813716 * T_unitless + 531.2826741 * T_unitless**2 - 180.0369914 * T_unitless**3;
     print("   Dielectric constant ", simu.epsilon)
     #simu.l_Bjerrum = 1./(simu.epsilon * unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB * simu.temp)
