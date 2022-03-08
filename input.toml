@@ -1,0 +1,33 @@
+title = "sis input"
+
+[job]
+type = "MD"
+
+[system]
+input = "xyz"
+
+[files]
+      [files.in]
+      ffxml = "../rna_cg1.xml"
+      xyz = "16SCD_monomer2200_run002_1000.xyz"
+
+      [files.out]
+      dcd = './md.dcd'
+      energy = './energy.out'
+      restart = './checkpnt.chk'
+      out = 'md.out'
+      frequency = 10000
+
+
+[MD]
+step = 200000000
+temperature = 310.15
+
+[basepair]
+Uhb_GC = -7.35
+Uhb_AU = -4.90
+Uhb_GU = -4.90
+
+[electrostatic]
+monovalent = -1.0
+cutoff = 30.0

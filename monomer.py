@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
-from simtk.openmm import app
-import simtk.openmm as omm
+from openmm import app
+import openmm as omm
 from simtk import unit
 from numpy import diag
 import itertools as it
@@ -10,6 +10,7 @@ import sys
 import argparse
 from math import sqrt, acos, atan2, ceil
 import re
+import toml
 
 def prev_and_next(iterable):
     prevs, items, nexts = it.tee(iterable, 3)
@@ -135,52 +136,13 @@ def AllAtom2CoarseGrain(pdb, forcefield):
 KELVIN_TO_KT = unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB / unit.kilocalorie_per_mole
 #print KELVIN_TO_KT
 
-parser = argparse.ArgumentParser(description='Coarse-grained simulation using OpenMM')
-
-parser_build = parser.add_mutually_exclusive_group(required=True)
-parser_build.add_argument('-p','--pdb', type=str, help='pdb structure')
-parser_build.add_argument('-f','--sequence', type=str, help='input structure')
-parser_build.add_argument('-P','--cgpdb', type=str, help='CG pdb structure')
+#parser_build = parser.add_mutually_exclusive_group(required=True)
+#parser_build.add_argument('-p','--pdb', type=str, help='pdb structure')
+#parser_build.add_argument('-f','--sequence', type=str, help='input structure')
+#parser_build.add_argument('-P','--cgpdb', type=str, help='CG pdb structure')
 
 #parser.add_argument('-C','--RNA_conc', type=float, default='10.',
 #                    help='RNA concentration (microM) [10.0]')
-parser.add_argument('-K','--monovalent_concentration', type=float, default='-1.',
-                    help='Monovalent concentration (mM) [Default: no electrostatic]')
-#parser.add_argument('-v','--box_size', type=float, default='80.',
-#                    help='Box length (A) [80.0]')
-parser.add_argument('-c','--cutoff', type=float, default='30.',
-                    help='Electrostatic cutoff (A) [30.0]')
-parser.add_argument('-H','--hbond_energy', type=float, default='1.67',
-                    help='Hbond strength (kcal/mol) [1.67]')
-parser.add_argument('-b','--hbond_file', type=str,
-                    help='file storing tertiary Hbond')
-parser.add_argument('-T','--temperature', type=float, default='20.',
-                    help='Temperature (oC) [20.0]')
-parser.add_argument('-t','--traj', type=str, default='md.dcd',
-                    help='trajectory output')
-parser.add_argument('-e','--energy', type=str, default='energy.out',
-                    help='energy decomposition')
-parser.add_argument('-o','--output', type=str, default='md.out',
-                    help='status and energy output')
-parser.add_argument('-x','--frequency', type=int, default='10000',
-                    help='output and restart frequency')
-parser.add_argument('-n','--step', type=int, default='10000',
-                    help='Number of step [10000]')
-parser.add_argument('-R','--restart', action='store_true',
-                    help='flag to restart simulation')
-parser.add_argument('-r','--res_file', type=str, default='checkpnt.chk',
-                    help='checkpoint file for restart')
-
-parser.add_argument('--platform', type=str, default=None,
-                    help='Platform')
-parser.add_argument('--CUDAdevice', type=str, default=None,
-                    help='CUDA device ID')
-
-parser_init = parser.add_mutually_exclusive_group(required=False)
-parser_init.add_argument('-k','--chkpoint', type=str, help='initial xml state')
-parser_init.add_argument('-i','--initpdb', type=str, help='initial structure CG PDB')
-
-args = parser.parse_args()
 
 class simu:    ### structure to group all simulation parameter
     box = 0.
@@ -191,46 +153,85 @@ class simu:    ### structure to group all simulation parameter
     epsilon = 0.
     b = 4.38178046 * unit.angstrom / unit.elementary_charge
     restart = False
-#    list = None ### list cannot be initialized here!!
+    restart_file = None
 
-#simu.list = []
-#simu.box = args.box_size * unit.angstrom
-Hbond_Uhb = args.hbond_energy*unit.kilocalorie_per_mole
-simu.temp = (args.temperature + 273.15)*unit.kelvin
-simu.Nstep = args.step
-simu.cutoff = args.cutoff*unit.angstrom
-simu.Kconc = args.monovalent_concentration
-simu.restart = args.restart
+if len(sys.argv) == 2:
+    simu.restart = False
+elif len(sys.argv) == 3:
+    simu.restart = True
+    simu.restart_file = sys.argv[2]
+else:
+    print('Usage: SCRIPT (input toml) [restart file]')
+    sys.exit(2)
+
+tomldata = toml.load(sys.argv[1])
+
+if 'box' not in tomldata['system']:
+    simu.box = 0.
+else:
+    simu.box = tomldata['system']['box']
+ 
+
+print('Basepair parameters')
+
+try:
+    Hbond_Uhb_GC = tomldata['basepair']['Uhb_GC']
+    Hbond_Uhb_AU = tomldata['basepair']['Uhb_AU']
+    Hbond_Uhb_GU = tomldata['basepair']['Uhb_GU']
+
+except KeyError:
+    '   WARNING: [basepair] was not found in the input file. Default values are set as follows.'
+    Hbond_Uhb = -2.45
+    Hbond_Uhb_GC = 3 * Hbond_Uhb * unit.kilocalorie_per_mole
+    Hbond_Uhb_AU = 2 * Hbond_Uhb * unit.kilocalorie_per_mole
+    Hbond_Uhb_GU = 2 * Hbond_Uhb * unit.kilocalorie_per_mole
+
+except:
+    print('Unknown error occurred in reading [basepair].')
+    sys.exit(2)
+
+print('    Uhb_GC ', Uhb_GC)
+print('    Uhb_AU ', Uhb_AU)
+print('    Uhb_GU ', Uhb_GU)
+print('')
+
+simu.temp = tomldata['MD']['temperature'] * unit.kelvin
+simu.Nstep = tomldata['MD']['step']
+simu.cutoff = tomldata['electrostatic']['cutoff'] * unit.angstrom
+simu.Kconc = tomldata['electrostatic']['monovalent']
 
 T_unitless = simu.temp * KELVIN_TO_KT
 
 ## Debye-Huckel is enabled if simu.Kconc is given (>= 0).
 if simu.Kconc >= 0.:
     print("Electrostatic parameters:")
-    print("   [K] ", simu.Kconc, " mM")
+    print("    [K] ", simu.Kconc, " mM")
     simu.epsilon = 296.0736276 - 619.2813716 * T_unitless + 531.2826741 * T_unitless**2 - 180.0369914 * T_unitless**3;
-    print("   Dielectric constant ", simu.epsilon)
+    print("    Dielectric constant ", simu.epsilon)
     #simu.l_Bjerrum = 1./(simu.epsilon * unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB * simu.temp)
     simu.l_Bjerrum = 332.0637*unit.angstroms / simu.epsilon
-    print("   Bjerrum length  ", simu.l_Bjerrum / T_unitless)
+    print("    Bjerrum length  ", simu.l_Bjerrum / T_unitless)
     simu.Q = simu.b * T_unitless * unit.elementary_charge**2 / simu.l_Bjerrum
-    print("   Phosphate charge   ", -simu.Q)
+    print("    Phosphate charge   ", -simu.Q)
     simu.kappa = unit.sqrt (4*3.14159 * simu.l_Bjerrum * 2*simu.Kconc*6.022e-7 / (T_unitless * unit.angstrom**3))
-    print("   kappa   ", simu.kappa)
-    print("   Debye length ", 1.0/simu.kappa)
+    print("    kappa   ", simu.kappa)
+    print("    Debye length ", 1.0/simu.kappa)
     print("")
 
-forcefield = app.ForceField('rna_cg1.xml')
+forcefield = app.ForceField(tomldata['files']['in']['ffxml'])   # 'rna_cg1.xml'
 topology = None
 positions = None
 
-if args.pdb != None:
+if tomldata['system']['input'] == 'pdb':
     print("Reading PDB file ...")
-    pdb = app.PDBFile(args.pdb)
+    pdb = app.PDBFile(tomldata['files']['in']['pdb'])
     topology, positions = AllAtom2CoarseGrain(pdb, forcefield)
 
-elif args.sequence != None:
-    print("Building from sequence %s ..." % args.sequence)
+elif tomldata['system']['input'] == 'CAGrepeat':
+    if tomldata['system']['sequence'] is None:
+        print('sequence is required in [system]')
+        sys.exit(2)
+    print("Building from sequence %s ..." % tomldata['system']['sequence'])
     #N_RNA = args.RNA_conc * 6.022e-10 * args.box_size**3
     #N_RNA_added = (int(N_RNA**(1./3)))**3
     N_RNA_added = 1
@@ -239,11 +240,15 @@ elif args.sequence != None:
     #simu.box = (N_RNA_added / (real_conc * 6.022e-10))**(1./3) * unit.angstrom
     #print("Box size    %f A" % (simu.box/unit.angstrom))
     #print("Numbers added   %d ----> %f microM" % (N_RNA_added, real_conc))
-    topology, positions = build_by_seq(args.sequence, N_RNA_added, simu.box, forcefield)
+    topology, positions = build_by_seq(tomldata['job']['system']['sequence'], N_RNA_added, simu.box, forcefield)
 
-elif args.cgpdb != None:
+elif tomldata['system']['input'] == 'cgpdb':
 
-    cgpdb = app.PDBFile(args.cgpdb)
+    if tomldata['files']['in']['cgpdb'] is None:
+        print('cgpdb is needed in [files.in]')
+        sys.exit(2)
+
+    cgpdb = app.PDBFile(tomldata['files']['in']['cgpdb'])
 
     topology = cgpdb.getTopology()
     positions = cgpdb.getPositions()
@@ -262,11 +267,49 @@ elif args.cgpdb != None:
                 topology.addBond(get_atom(prev), get_atom(item))
 
     # Assume all the chains from the PDB are RNA
-    N_RNA_added = topology.getNumChains()
-    simu.box = (N_RNA_added / (args.RNA_conc * 6.022e-10))**(1./3) * unit.angstrom
+    #N_RNA_added = topology.getNumChains()
+    #simu.box = (N_RNA_added / (args.RNA_conc * 6.022e-10))**(1./3) * unit.angstrom
 
-    print("Box size    %f A" % (simu.box/unit.angstrom))
-    print("Numbers added   %d ----> %f microM" % (N_RNA_added, args.RNA_conc))
+    #print("Box size    %f A" % (simu.box/unit.angstrom))
+    #print("Numbers added   %d ----> %f microM" % (N_RNA_added, args.RNA_conc))
+
+elif tomldata['system']['input'] == 'xyz':
+
+    if tomldata['files']['in']['xyz'] is None:
+        print('xyz is needed in [files.in]')
+        sys.exit(2)
+
+    name_map = {'A': 'ADE', 'C': 'CYT', 'G': 'GUA', 'U': 'URA'}
+
+    seq = []
+    positions = []
+    topology = app.Topology()
+    chain = topology.addChain()
+    N = 0
+    for il, l in enumerate(open(tomldata['files']['in']['xyz'])):
+        if il > 1:
+            lsp = l.split()
+            positions.append([float(lsp[1])*unit.angstrom, float(lsp[2])*unit.angstrom, float(lsp[3])*unit.angstrom])
+
+            seq.append(lsp[0])
+            symbol = name_map[lsp[0]]
+            if len(seq) == 1 or len(seq) == N:
+                symbol = symbol + "T"
+    
+            res = topology.addResidue(symbol, chain)
+            atom = forcefield._templates[symbol].atoms[0]
+            topology.addAtom(atom.name, forcefield._atomTypes[atom.type].element, res)
+
+        if il == 0:
+            N = int(l)
+    
+    if len(seq) != N:
+        print('Error: len(seq) != N in reading xyz')
+        sys.exit(2)
+
+    for prev, item, nxt in prev_and_next(chain.residues()):
+        if prev != None:
+            topology.addBond(get_atom(prev), get_atom(item))
 
 else:
     print("Need at least structure or sequence !!!")
@@ -367,20 +410,20 @@ energy_function += "- kt*(angle(d1, a1, a3) - theta2)^2"
 energy_function += "- kp*(1. + cos(dihedral(d2, d1, a1, a2) + phi1))"
 energy_function += "- kp*(1. + cos(dihedral(d3, d1, a1, a3) + phi2))"
 
-energy_functionAU = "2 * Uhb * exp(" + energy_function + ")"
+energy_function = "Uhb * exp(" + energy_function + ")"
 
 bondlength = 1.38*unit.nanometers
 kr = 3./unit.angstrom**2
-kt = 1.5/unit.radian**2
-kp = 0.5
+kt = 3.2/unit.radian**2
+kp = 1.3
 theta1 = 1.8326*unit.radians
 theta2 = 0.9425*unit.radians
 phi1 = 1.8326*unit.radians
 phi2 = 1.1345*unit.radians
 cutoff = 1.8*unit.nanometers
 
-HbAUforce = omm.CustomHbondForce(energy_functionAU)
-HbAUforce.addGlobalParameter('Uhb', -Hbond_Uhb)
+HbAUforce = omm.CustomHbondForce(energy_function)
+HbAUforce.addGlobalParameter('Uhb', Hbond_Uhb_AU)
 HbAUforce.addGlobalParameter('r0', bondlength)
 HbAUforce.addGlobalParameter('kr', kr)
 HbAUforce.addGlobalParameter('kt', kt)
@@ -396,10 +439,8 @@ HbAUforce.setForceGroup(totalforcegroup)
 print("Force group H-bond AU: ", totalforcegroup)
 #HbAUforce.usesPeriodicBoundaryConditions()
 
-energy_functionGC = "3 * Uhb * exp(" + energy_function + ")"
-
-HbGCforce = omm.CustomHbondForce(energy_functionGC)
-HbGCforce.addGlobalParameter('Uhb', -Hbond_Uhb)
+HbGCforce = omm.CustomHbondForce(energy_function)
+HbGCforce.addGlobalParameter('Uhb', Hbond_Uhb_GC)
 HbGCforce.addGlobalParameter('r0', bondlength)
 HbGCforce.addGlobalParameter('kr', kr)
 HbGCforce.addGlobalParameter('kt', kt)
@@ -415,8 +456,8 @@ HbGCforce.setForceGroup(totalforcegroup)
 print("Force group H-bond GC: ", totalforcegroup)
 #HbGCforce.usesPeriodicBoundaryConditions()
 
-HbGUforce = omm.CustomHbondForce(energy_functionAU)
-HbGUforce.addGlobalParameter('Uhb', -Hbond_Uhb)
+HbGUforce = omm.CustomHbondForce(energy_function)
+HbGUforce.addGlobalParameter('Uhb', Hbond_Uhb_GU)
 HbGUforce.addGlobalParameter('r0', bondlength)
 HbGUforce.addGlobalParameter('kr', kr)
 HbGUforce.addGlobalParameter('kt', kt)
@@ -489,7 +530,8 @@ print ("Initializing HB bonds:")
 if (HbAUforce.getNumDonors() > 0 and HbAUforce.getNumAcceptors() > 0):
     for ind1, res1 in enumerate(list_donorAU):
         for ind2, res2 in enumerate(list_acceptorAU):
-            if res2 in same_chain_list[res1] and abs(res1-res2) < 5:
+            #if res2 in same_chain_list[res1] and abs(res1-res2) < 5:
+            if res2 in same_chain_list[res1] and abs(res1-res2) in (1,3):
                 HbAUforce.addExclusion(ind1, ind2)
     print("   A-U:  %d A,   %d U" % (HbAUforce.getNumDonors(), HbAUforce.getNumAcceptors()))
     print("         %d exclusion" % HbAUforce.getNumExclusions())
@@ -498,7 +540,8 @@ if (HbAUforce.getNumDonors() > 0 and HbAUforce.getNumAcceptors() > 0):
 if (HbGCforce.getNumDonors() > 0 and HbGCforce.getNumAcceptors() > 0):
     for ind1, res1 in enumerate(list_donorGC):
         for ind2, res2 in enumerate(list_acceptorGC):
-            if res2 in same_chain_list[res1] and abs(res1-res2) < 5:
+            #if res2 in same_chain_list[res1] and abs(res1-res2) < 5:
+            if res2 in same_chain_list[res1] and abs(res1-res2) in (1,3):
                 HbGCforce.addExclusion(ind1, ind2)
     print("   G-C:  %d G,   %d C" % (HbGCforce.getNumDonors(), HbGCforce.getNumAcceptors()))
     print("         %d exclusion" % HbGCforce.getNumExclusions())
@@ -507,7 +550,8 @@ if (HbGCforce.getNumDonors() > 0 and HbGCforce.getNumAcceptors() > 0):
 if (HbGUforce.getNumDonors() > 0 and HbGUforce.getNumAcceptors() > 0):
     for ind1, res1 in enumerate(list_donorGU):
         for ind2, res2 in enumerate(list_acceptorGU):
-            if res2 in same_chain_list[res1] and abs(res1-res2) < 5:
+            #if res2 in same_chain_list[res1] and abs(res1-res2) < 5:
+            if res2 in same_chain_list[res1] and abs(res1-res2) in (1,3):
                 HbGUforce.addExclusion(ind1, ind2)
     print("   G-U:  %d G,   %d U" % (HbGUforce.getNumDonors(), HbGUforce.getNumAcceptors()))
     print("         %d exclusion" % HbGUforce.getNumExclusions())
@@ -650,20 +694,20 @@ class EnergyReporter(object):
 
 integrator = omm.LangevinIntegrator(simu.temp, 0.5/unit.picosecond, 50*unit.femtoseconds)
 #platform = omm.Platform.getPlatformByName('CUDA')
+#platform = omm.Platform.getPlatformByName('CPU')
 #properties = {'CudaPrecision': 'mixed'}
 
-if args.platform is not None:
-    platform = omm.Platform.getPlatformByName(args.platform)
-    print("Platform ", args.platform)
-else:
-    platform = None
+platform = None
+properties = None
+if 'GPU' in tomldata:
+    if 'platform' in tomldata['GPU']:
+        platform = omm.Platform.getPlatformByName(tomldata.GPU.platform)
+        print("Platform ", tomldata.GPU.platform)
 
-if args.CUDAdevice is not None:
-    properties = {} 
-    properties["DeviceIndex"] = args.CUDAdevice
-    print("DeviceIndex ", args.CUDAdevice)
-else:
-    properties = None
+    if 'CUDAdevice' in tomldata['GPU']:
+        properties = {} 
+        properties["DeviceIndex"] = tomldata.GPU.CUDAdevice
+        print("DeviceIndex ", tomldata.GPU.CUDAdevice)
 
 #simulation = app.Simulation(topology, system, integrator, platform)
 simulation = app.Simulation(topology, system, integrator, platform, properties)
@@ -671,10 +715,10 @@ simulation = app.Simulation(topology, system, integrator, platform, properties)
 
 if simu.restart == False:
 
-    if args.chkpoint is not None:
+    if 'init_chk' in tomldata['files']['in']:
         print('Warning: Check the code carefully before using chkpoint option (-k).')
         print('         The scaling of position is hard-coded.')
-        simulation.loadState(args.chkpoint)
+        simulation.loadState(tomldata['files']['in']['init_chk'])
 
         positions = simulation.context.getState(getPositions=True).getPositions()
         newpost = []
@@ -688,8 +732,8 @@ if simu.restart == False:
             simulation.context.setPositions(newpost)
             #print "Initial energy   %f   kcal/mol" % (simulation.context.getState(getEnergy=True).getPotentialEnergy() / unit.kilocalorie_per_mole)
 
-    elif args.initpdb is not None:
-        simulation.context.setPositions(app.PDBFile(args.initpdb).positions)
+    elif 'init_pdb' in tomldata['files']['in']:
+        simulation.context.setPositions(app.PDBFile(tomldata['files']['in']['init_pdb']).positions)
 
     else:
         simulation.context.setPositions(positions)
@@ -713,12 +757,13 @@ if simu.restart == False:
 
 else:
     print("Loading checkpoint ...")
-    simulation.loadCheckpoint(args.res_file)
+    simulation.loadCheckpoint(simu.restart_file)
 
-simulation.reporters.append(app.DCDReporter(args.traj, args.frequency))
-simulation.reporters.append(app.StateDataReporter(args.output, args.frequency, step=True, potentialEnergy=True, temperature=True, remainingTime=True, totalSteps=simu.Nstep, separator='  '))
-simulation.reporters.append(EnergyReporter(args.energy, args.frequency))
-simulation.reporters.append(app.CheckpointReporter(args.res_file, int(args.frequency)*100))
+simulation.reporters.append(app.DCDReporter(tomldata['files']['out']['dcd'], tomldata['files']['out']['frequency']))
+simulation.reporters.append(app.StateDataReporter(tomldata['files']['out']['out'], tomldata['files']['out']['frequency'], 
+                            step=True, potentialEnergy=True, temperature=True, remainingTime=True, totalSteps=simu.Nstep, separator='  '))
+simulation.reporters.append(EnergyReporter(tomldata['files']['out']['energy'], tomldata['files']['out']['frequency']))
+simulation.reporters.append(app.CheckpointReporter(tomldata['files']['out']['restart'], int(tomldata['files']['out']['frequency'])*100))
 
 print('Running ...')
 sys.stdout.flush()
