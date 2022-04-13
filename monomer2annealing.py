@@ -179,10 +179,10 @@ if tomldata['job']['type'] == 'MD':
 	simu.Nstep = tomldata['MD']['step']
 elif tomldata['job']['type'] == 'MDanneal':
 	simu.Nstep = tomldata['MDanneal']['step']
-	for line in tomldata['files']['in']['anneal']:
+	for line in open(tomldata['files']['in']['anneal']):
 		lsp = line.split() 
 		simu.steplist.append(int(lsp[0]))
-		simu.templist.append(float(lsp[1]))
+		simu.templist.append(float(lsp[1]) * unit.kelvin)
 	simu.steplist.append(simu.Nstep)
 simu.cutoff = tomldata['electrostatic']['cutoff'] * unit.angstrom
 simu.Kconc = tomldata['electrostatic']['monovalent']
