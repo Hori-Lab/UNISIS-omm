@@ -760,9 +760,13 @@ sys.stderr.flush()
 
 t0 = time.time()
 Nanneal = len(simu.templist)
-for ianneal in range(Nanneal):
-	integrator.setTemperature(simu.templist[ianneal])
-	simulation.step(simu.steplist[ianneal +1] - simu.steplist[ianneal])
+
+if tomldata['job']['type'] == 'MD':
+	simulation.step(simu.Nstep)
+if tomldata['job']['type'] == 'MDanneal':
+    for ianneal in range(Nanneal):
+        integrator.setTemperature(simu.templist[ianneal])
+        simulation.step(simu.steplist[ianneal +1] - simu.steplist[ianneal])
 #simulation.saveState('checkpoint.xml')
 prodtime = time.time() - t0
 print("Simulation speed: % .2e steps/day" % (86400*simu.Nstep/(prodtime)))
