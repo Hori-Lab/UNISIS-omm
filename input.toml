@@ -4,23 +4,23 @@ title = "sis input"
 type = "MD"
 
 [system]
-input = "xyz"
+input = "cgpdb"
 
 [files]
       [files.in]
-      ffxml = "../rna_cg1.xml"
-      xyz = "16SCD_monomer2200_run002_1000.xyz"
+      ffxml = "./rna_cg1.xml"
+      cgpdb = "S2HP_random.pdb"
 
       [files.out]
       dcd = './md.dcd'
       energy = './energy.out'
       restart = './checkpnt.chk'
       out = 'md.out'
-      frequency = 10000
+      frequency = 1000
 
 
 [MD]
-step = 200000000
+step = 200000
 temperature = 310.15
 
 [basepair]
