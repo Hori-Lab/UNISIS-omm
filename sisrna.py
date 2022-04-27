@@ -154,6 +154,8 @@ class simu:    ### structure to group all simulation parameter
     b = 4.38178046 * unit.angstrom / unit.elementary_charge
     restart = False
     restart_file = None
+    templist = []
+    steplist = []
 
 if len(sys.argv) == 2:
     simu.restart = False
@@ -171,7 +173,7 @@ print(str(datetime.now()) + ' (UTC: ' + str(datetime.utcnow()) + ')')
 # Output Git hash
 import subprocess
 print('Git hash: ' + subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip())
-print()
+print('')
 
 
 tomldata = toml.load(sys.argv[1])
@@ -205,8 +207,20 @@ print('    Uhb_AU ', Hbond_Uhb_AU)
 print('    Uhb_GU ', Hbond_Uhb_GU)
 print('')
 
-simu.temp = tomldata['MD']['temperature'] * unit.kelvin
-simu.Nstep = tomldata['MD']['step']
+if tomldata['job']['type'] == 'MD':
+    simu.temp = tomldata['MD']['temperature'] * unit.kelvin
+    simu.Nstep = tomldata['MD']['step']
+
+elif tomldata['job']['type'] == 'MDanneal':
+	simu.Nstep = tomldata['MDanneal']['step']
+
+	for line in open(tomldata['files']['in']['anneal']):
+		lsp = line.split() 
+		simu.steplist.append(int(lsp[0]))
+		simu.templist.append(float(lsp[1]) * unit.kelvin)
+
+	simu.steplist.append(simu.Nstep)
+
 simu.cutoff = tomldata['electrostatic']['cutoff'] * unit.angstrom
 simu.Kconc = tomldata['electrostatic']['monovalent']
 
@@ -780,7 +794,18 @@ sys.stdout.flush()
 sys.stderr.flush()
 
 t0 = time.time()
-simulation.step(simu.Nstep)
+
+if tomldata['job']['type'] == 'MD':
+	simulation.step(simu.Nstep)
+
+elif tomldata['job']['type'] == 'MDanneal':
+    Nanneal = len(simu.templist)
+
+    for ianneal in range(Nanneal):
+        print(f'Set temperature to {simu.templist[ianneal]} at step {simu.steplist[ianneal]:d}.')
+        integrator.setTemperature(simu.templist[ianneal])
+        simulation.step(simu.steplist[ianneal +1] - simu.steplist[ianneal])
+
 #simulation.saveState('checkpoint.xml')
 prodtime = time.time() - t0
 print("Simulation speed: % .2e steps/day" % (86400*simu.Nstep/(prodtime)))

@@ -1,4 +1,4 @@
-
+#!/usr/bin/env python
 
 output = open('5SAnnealing.temp', 'w')
 starttemp = 380.15
