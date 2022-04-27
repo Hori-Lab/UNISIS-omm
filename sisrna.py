@@ -190,9 +190,9 @@ except:
     print('Unknown error occurred in reading [basepair].')
     sys.exit(2)
 
-print('    Uhb_GC ', Uhb_GC)
-print('    Uhb_AU ', Uhb_AU)
-print('    Uhb_GU ', Uhb_GU)
+print('    Uhb_GC ', Hbond_Uhb_GC)
+print('    Uhb_AU ', Hbond_Uhb_AU)
+print('    Uhb_GU ', Hbond_Uhb_GU)
 print('')
 
 simu.temp = tomldata['MD']['temperature'] * unit.kelvin
