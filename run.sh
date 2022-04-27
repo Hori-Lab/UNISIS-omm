@@ -19,4 +19,4 @@
 #             -K 150.0 --cutoff 50.0 \
 #             1> out 2> err
 
-./sisrna.py ./input.toml
+./sisrna.py ./input.toml 1> out 2> err

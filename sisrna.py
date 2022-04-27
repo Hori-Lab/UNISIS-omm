@@ -164,6 +164,16 @@ else:
     print('Usage: SCRIPT (input toml) [restart file]')
     sys.exit(2)
 
+# Output the date
+from datetime import datetime
+print(str(datetime.now()) + ' (UTC: ' + str(datetime.utcnow()) + ')')
+
+# Output Git hash
+import subprocess
+print('Git hash: ' + subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip())
+print()
+
+
 tomldata = toml.load(sys.argv[1])
 
 if 'box' not in tomldata['system']:
