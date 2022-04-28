@@ -344,6 +344,7 @@ else:
 system = forcefield.createSystem(topology)
 
 totalforcegroup = -1
+groupnames = []
 
 ########## bond force
 bondforce = omm.HarmonicBondForce()
@@ -354,6 +355,7 @@ bondforce.setUsesPeriodicBoundaryConditions(False)
 totalforcegroup += 1
 bondforce.setForceGroup(totalforcegroup)
 print("Force group bond: ", totalforcegroup)
+groupnames.append("Ubond")
 system.addForce(bondforce)
 
 ######### angle force
@@ -370,6 +372,7 @@ angleforce.setUsesPeriodicBoundaryConditions(False)
 totalforcegroup += 1
 angleforce.setForceGroup(totalforcegroup)
 print("Force group angle: ", totalforcegroup)
+groupnames.append("Uangl")
 system.addForce(angleforce)
 
 ######## WCA force
@@ -397,6 +400,7 @@ WCAforce.setCutoffDistance(WCA_cutoff)
 totalforcegroup += 1
 WCAforce.setForceGroup(totalforcegroup)
 print("Force group WCA: ", totalforcegroup)
+groupnames.append("Uwca")
 WCAforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffNonPeriodic)
 system.addForce(WCAforce)
 
@@ -422,6 +426,7 @@ if simu.Kconc >= 0.:
     totalforcegroup += 1
     DHforce.setForceGroup(totalforcegroup)
     print("Force group Debye-Huckel: ", totalforcegroup)
+    groupnames.append("Uele")
     DHforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffNonPeriodic)
     system.addForce(DHforce)
 
@@ -461,6 +466,7 @@ HbAUforce.setNonbondedMethod(omm.CustomHbondForce.CutoffNonPeriodic)
 totalforcegroup += 1
 HbAUforce.setForceGroup(totalforcegroup)
 print("Force group H-bond AU: ", totalforcegroup)
+groupnames.append("Ubp(A-U)")
 #HbAUforce.usesPeriodicBoundaryConditions()
 
 HbGCforce = omm.CustomHbondForce(energy_function)
@@ -478,6 +484,7 @@ HbGCforce.setNonbondedMethod(omm.CustomHbondForce.CutoffNonPeriodic)
 totalforcegroup += 1
 HbGCforce.setForceGroup(totalforcegroup)
 print("Force group H-bond GC: ", totalforcegroup)
+groupnames.append("Ubp(G-C)")
 #HbGCforce.usesPeriodicBoundaryConditions()
 
 HbGUforce = omm.CustomHbondForce(energy_function)
@@ -495,6 +502,7 @@ HbGUforce.setNonbondedMethod(omm.CustomHbondForce.CutoffNonPeriodic)
 totalforcegroup += 1
 HbGUforce.setForceGroup(totalforcegroup)
 print("Force group H-bond GU: ", totalforcegroup)
+groupnames.append("Ubp(G-U)")
 #HbGUforce.usesPeriodicBoundaryConditions()
 
 list_donorGC = []
@@ -698,6 +706,13 @@ class EnergyReporter(object):
     def __init__ (self, file, reportInterval):
         self._out = open(file, 'w')
         self._reportInterval = reportInterval
+        self._out.write('#   Steps   ')
+        self._out.write('  Ukinetic   ')
+        self._out.write('  Upotential ')
+        for gn in groupnames:
+            self._out.write(f' {gn:^12s}')
+        self._out.write("\n")
+        self._out.flush()
 
     def __del__ (self):
         self._out.close()
@@ -709,11 +724,16 @@ class EnergyReporter(object):
 
     def report(self, simulation, state):
         energy = []
-        self._out.write(str(simulation.currentStep))
+        self._out.write(f"{simulation.currentStep:12d}")
+        state = simulation.context.getState(getEnergy=True)
+        energy = state.getKineticEnergy() / unit.kilocalorie_per_mole
+        self._out.write(f" {energy:12.6g}")
+        energy = state.getPotentialEnergy() / unit.kilocalorie_per_mole
+        self._out.write(f" {energy:12.6g}")
         for i in range(totalforcegroup + 1):
             state = simulation.context.getState(getEnergy=True, groups=2**i)
             energy = state.getPotentialEnergy() / unit.kilocalorie_per_mole
-            self._out.write("  " + str(energy))
+            self._out.write(f" {energy:12.6g}")
         self._out.write("\n")
 
 integrator = omm.LangevinIntegrator(simu.temp, 0.5/unit.picosecond, 50*unit.femtoseconds)
