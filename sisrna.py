@@ -271,7 +271,7 @@ elif tomldata['system']['input'] == 'CAGrepeat':
     #simu.box = (N_RNA_added / (real_conc * 6.022e-10))**(1./3) * unit.angstrom
     #print("Box size    %f A" % (simu.box/unit.angstrom))
     #print("Numbers added   %d ----> %f microM" % (N_RNA_added, real_conc))
-    topology, positions = build_by_seq(tomldata['job']['system']['sequence'], N_RNA_added, simu.box, forcefield)
+    topology, positions = build_by_seq(tomldata['system']['sequence'], N_RNA_added, simu.box, forcefield)
 
 elif tomldata['system']['input'] == 'cgpdb':
 
