@@ -171,8 +171,15 @@ from datetime import datetime
 print(str(datetime.now()) + ' (UTC: ' + str(datetime.utcnow()) + ')')
 
 # Output Git hash
-import subprocess
-print('Git hash: ' + subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip())
+try:
+    import os
+    import subprocess
+    src_path = os.path.dirname(os.path.realpath(__file__))
+    h = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=src_path, stderr=subprocess.DEVNULL).decode('ascii').strip()
+    print('Git hash: ' + h)
+except:
+    pass
+
 print('')
 
 
