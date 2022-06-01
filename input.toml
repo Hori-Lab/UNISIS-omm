@@ -10,11 +10,14 @@ input = "cgpdb"
       [files.in]
       ffxml = "./rna_cg1.xml"
       cgpdb = "S2HP_random.pdb"
+      #xyz = "S2HP_random.xyz"
+      #exclusion = "./BPexclusion.txt"
 
       [files.out]
       dcd = './md.dcd'
       energy = './energy.out'
       restart = './checkpnt.chk'
+      exclusion = "./BPexclusion.txt"
       out = 'md.out'
       frequency = 1000
 

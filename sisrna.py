@@ -7,7 +7,6 @@ from numpy import diag
 import itertools as it
 import time
 import sys
-import argparse
 from math import sqrt, acos, atan2, ceil
 import re
 import toml
@@ -136,13 +135,6 @@ def AllAtom2CoarseGrain(pdb, forcefield):
 KELVIN_TO_KT = unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB / unit.kilocalorie_per_mole
 #print KELVIN_TO_KT
 
-#parser_build = parser.add_mutually_exclusive_group(required=True)
-#parser_build.add_argument('-p','--pdb', type=str, help='pdb structure')
-#parser_build.add_argument('-f','--sequence', type=str, help='input structure')
-#parser_build.add_argument('-P','--cgpdb', type=str, help='CG pdb structure')
-
-#parser.add_argument('-C','--RNA_conc', type=float, default='10.',
-#                    help='RNA concentration (microM) [10.0]')
 
 class simu:    ### structure to group all simulation parameter
     box = 0.
@@ -228,8 +220,11 @@ elif tomldata['job']['type'] == 'MDanneal':
 
 	simu.steplist.append(simu.Nstep)
 
-simu.cutoff = tomldata['electrostatic']['cutoff'] * unit.angstrom
-simu.Kconc = tomldata['electrostatic']['monovalent']
+if 'electrostatic' in tomldata.keys():
+    simu.cutoff = tomldata['electrostatic']['cutoff'] * unit.angstrom
+    simu.Kconc = tomldata['electrostatic']['monovalent']
+else:
+    simu.Kconc = -1.0
 
 T_unitless = simu.temp * KELVIN_TO_KT
 
@@ -553,48 +548,88 @@ for chain in topology.chains():
 #            break
 #    return (check1 and check2)
 
-same_chain_list = []
-for chain in topology.chains():
-    for res1 in chain.residues():
-        connect_list = []
-        for res2 in chain.residues():
-            if res1.index == res2.index:
-                continue
-            connect_list.append(res2.index)
-        same_chain_list.append(connect_list)
-
-#print same_chain_list
-
 print ("Initializing HB bonds:")
-if (HbAUforce.getNumDonors() > 0 and HbAUforce.getNumAcceptors() > 0):
-    for ind1, res1 in enumerate(list_donorAU):
-        for ind2, res2 in enumerate(list_acceptorAU):
-            #if res2 in same_chain_list[res1] and abs(res1-res2) < 5:
-            if res2 in same_chain_list[res1] and abs(res1-res2) in (1,3):
-                HbAUforce.addExclusion(ind1, ind2)
+
+if 'BPexclusion' not in tomldata['files']['in'].keys():
+
+    flg_out_excl = False
+    if 'BPexclusion' in tomldata['files']['out'].keys():
+        flg_out_excl = True
+        f_excl = open(tomldata['files']['out']['BPexclusion'], 'w')
+
+    same_chain_list = []
+    for chain in topology.chains():
+        for res1 in chain.residues():
+            connect_list = []
+            for res2 in chain.residues():
+                if res1.index == res2.index:
+                    continue
+                connect_list.append(res2.index)
+            same_chain_list.append(connect_list)
+
+    if (HbAUforce.getNumDonors() > 0 and HbAUforce.getNumAcceptors() > 0):
+        for ind1, res1 in enumerate(list_donorAU):
+            for ind2, res2 in enumerate(list_acceptorAU):
+                #if res2 in same_chain_list[res1] and abs(res1-res2) < 5:
+                if res2 in same_chain_list[res1] and abs(res1-res2) in (1,3):
+                    HbAUforce.addExclusion(ind1, ind2)
+                    if flg_out_excl:
+                        f_excl.write(f'AU {ind1} {ind2}\n')
+        print("   A-U:  %d A,   %d U" % (HbAUforce.getNumDonors(), HbAUforce.getNumAcceptors()))
+        print("         %d exclusion" % HbAUforce.getNumExclusions())
+        system.addForce(HbAUforce)
+
+    if (HbGCforce.getNumDonors() > 0 and HbGCforce.getNumAcceptors() > 0):
+        for ind1, res1 in enumerate(list_donorGC):
+            for ind2, res2 in enumerate(list_acceptorGC):
+                #if res2 in same_chain_list[res1] and abs(res1-res2) < 5:
+                if res2 in same_chain_list[res1] and abs(res1-res2) in (1,3):
+                    HbGCforce.addExclusion(ind1, ind2)
+                    if flg_out_excl:
+                        f_excl.write(f'GC {ind1} {ind2}\n')
+        print("   G-C:  %d G,   %d C" % (HbGCforce.getNumDonors(), HbGCforce.getNumAcceptors()))
+        print("         %d exclusion" % HbGCforce.getNumExclusions())
+        system.addForce(HbGCforce)
+
+    if (HbGUforce.getNumDonors() > 0 and HbGUforce.getNumAcceptors() > 0):
+        for ind1, res1 in enumerate(list_donorGU):
+            for ind2, res2 in enumerate(list_acceptorGU):
+                #if res2 in same_chain_list[res1] and abs(res1-res2) < 5:
+                if res2 in same_chain_list[res1] and abs(res1-res2) in (1,3):
+                    HbGUforce.addExclusion(ind1, ind2)
+                    if flg_out_excl:
+                        f_excl.write(f'GU {ind1} {ind2}\n')
+        print("   G-U:  %d G,   %d U" % (HbGUforce.getNumDonors(), HbGUforce.getNumAcceptors()))
+        print("         %d exclusion" % HbGUforce.getNumExclusions())
+        system.addForce(HbGUforce)
+
+    if flg_out_excl:
+        f_excl.close()
+
+else:
+    for l in open(tomldata['files']['in']['BPexclusion']):
+        lsp = l.split()
+        pair = lsp[0]
+        ind1 = int(lsp[1])
+        ind2 = int(lsp[2])
+        if pair == 'AU':
+            HbAUforce.addExclusion(ind1, ind2)
+        elif pair == 'GC':
+            HbGCforce.addExclusion(ind1, ind2)
+        elif pair == 'GU':
+            HbGUforce.addExclusion(ind1, ind2)
+
     print("   A-U:  %d A,   %d U" % (HbAUforce.getNumDonors(), HbAUforce.getNumAcceptors()))
     print("         %d exclusion" % HbAUforce.getNumExclusions())
-    system.addForce(HbAUforce)
-
-if (HbGCforce.getNumDonors() > 0 and HbGCforce.getNumAcceptors() > 0):
-    for ind1, res1 in enumerate(list_donorGC):
-        for ind2, res2 in enumerate(list_acceptorGC):
-            #if res2 in same_chain_list[res1] and abs(res1-res2) < 5:
-            if res2 in same_chain_list[res1] and abs(res1-res2) in (1,3):
-                HbGCforce.addExclusion(ind1, ind2)
     print("   G-C:  %d G,   %d C" % (HbGCforce.getNumDonors(), HbGCforce.getNumAcceptors()))
     print("         %d exclusion" % HbGCforce.getNumExclusions())
-    system.addForce(HbGCforce)
-
-if (HbGUforce.getNumDonors() > 0 and HbGUforce.getNumAcceptors() > 0):
-    for ind1, res1 in enumerate(list_donorGU):
-        for ind2, res2 in enumerate(list_acceptorGU):
-            #if res2 in same_chain_list[res1] and abs(res1-res2) < 5:
-            if res2 in same_chain_list[res1] and abs(res1-res2) in (1,3):
-                HbGUforce.addExclusion(ind1, ind2)
     print("   G-U:  %d G,   %d U" % (HbGUforce.getNumDonors(), HbGUforce.getNumAcceptors()))
     print("         %d exclusion" % HbGUforce.getNumExclusions())
+
+    system.addForce(HbAUforce)
+    system.addForce(HbGCforce)
     system.addForce(HbGUforce)
+
 
 ########## Tertiary Hbond
 #if args.pdb != None and args.hbond_file != None:
