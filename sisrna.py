@@ -186,9 +186,9 @@ else:
 print('Basepair parameters')
 
 try:
-    Hbond_Uhb_GC = tomldata['basepair']['Uhb_GC']
-    Hbond_Uhb_AU = tomldata['basepair']['Uhb_AU']
-    Hbond_Uhb_GU = tomldata['basepair']['Uhb_GU']
+    Hbond_Uhb_GC = tomldata['basepair']['Uhb_GC'] * unit.kilocalorie_per_mole
+    Hbond_Uhb_AU = tomldata['basepair']['Uhb_AU'] * unit.kilocalorie_per_mole
+    Hbond_Uhb_GU = tomldata['basepair']['Uhb_GU'] * unit.kilocalorie_per_mole
 
 except KeyError:
     '   WARNING: [basepair] was not found in the input file. Default values are set as follows.'
@@ -777,6 +777,7 @@ class EnergyReporter(object):
             energy = state.getPotentialEnergy() / unit.kilocalorie_per_mole
             self._out.write(f" {energy:12.6g}")
         self._out.write("\n")
+        self._out.flush()
 
 integrator = omm.LangevinIntegrator(simu.temp, 0.5/unit.picosecond, 50*unit.femtoseconds)
 #platform = omm.Platform.getPlatformByName('CUDA')
