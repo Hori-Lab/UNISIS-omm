@@ -231,6 +231,12 @@ print ('')
 
 print('Basepair parameters')
 
+flg_allow_tetraloop = False
+if 'basepair' in tomldata:
+    if 'allow_tetraloop' in tomldata['basepair']:
+        flg_allow_tetraloop = tomldata['basepair']['allow_tetraloop']
+print('    allow_tetraloop = ', flg_allow_tetraloop)
+
 try:
     Hbond_Uhb_GC = tomldata['basepair']['Uhb_GC'] * unit.kilocalorie_per_mole
     Hbond_Uhb_AU = tomldata['basepair']['Uhb_AU'] * unit.kilocalorie_per_mole
@@ -727,8 +733,8 @@ if 'BPexclusion' not in tomldata['files']['in'].keys():
     if (HbAUforce.getNumDonors() > 0 and HbAUforce.getNumAcceptors() > 0):
         for ind1, res1 in enumerate(list_donorAU):
             for ind2, res2 in enumerate(list_acceptorAU):
-                #if res2 in same_chain_list[res1] and abs(res1-res2) < 5:
-                if res2 in same_chain_list[res1] and abs(res1-res2) in (1,3):
+                if ((not flg_allow_tetraloop) and (res2 in same_chain_list[res1] and abs(res1-res2) < 5)
+                    or ( flg_allow_tetraloop) and (res2 in same_chain_list[res1] and abs(res1-res2) in (1,3))):
                     HbAUforce.addExclusion(ind1, ind2)
                     if flg_out_excl:
                         f_excl.write(f'AU {ind1} {ind2}\n')
@@ -739,8 +745,8 @@ if 'BPexclusion' not in tomldata['files']['in'].keys():
     if (HbGCforce.getNumDonors() > 0 and HbGCforce.getNumAcceptors() > 0):
         for ind1, res1 in enumerate(list_donorGC):
             for ind2, res2 in enumerate(list_acceptorGC):
-                #if res2 in same_chain_list[res1] and abs(res1-res2) < 5:
-                if res2 in same_chain_list[res1] and abs(res1-res2) in (1,3):
+                if ((not flg_allow_tetraloop) and (res2 in same_chain_list[res1] and abs(res1-res2) < 5)
+                    or ( flg_allow_tetraloop) and (res2 in same_chain_list[res1] and abs(res1-res2) in (1,3))):
                     HbGCforce.addExclusion(ind1, ind2)
                     if flg_out_excl:
                         f_excl.write(f'GC {ind1} {ind2}\n')
@@ -751,8 +757,8 @@ if 'BPexclusion' not in tomldata['files']['in'].keys():
     if (HbGUforce.getNumDonors() > 0 and HbGUforce.getNumAcceptors() > 0):
         for ind1, res1 in enumerate(list_donorGU):
             for ind2, res2 in enumerate(list_acceptorGU):
-                #if res2 in same_chain_list[res1] and abs(res1-res2) < 5:
-                if res2 in same_chain_list[res1] and abs(res1-res2) in (1,3):
+                if ((not flg_allow_tetraloop) and (res2 in same_chain_list[res1] and abs(res1-res2) < 5)
+                    or ( flg_allow_tetraloop) and (res2 in same_chain_list[res1] and abs(res1-res2) in (1,3))):
                     HbGUforce.addExclusion(ind1, ind2)
                     if flg_out_excl:
                         f_excl.write(f'GU {ind1} {ind2}\n')

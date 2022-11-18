@@ -30,6 +30,7 @@ temperature = 310.15
 Uhb_GC = -7.35
 Uhb_AU = -4.90
 Uhb_GU = -4.90
+allow_tetraloop = true
 
 [electrostatic]
 monovalent = -1.0

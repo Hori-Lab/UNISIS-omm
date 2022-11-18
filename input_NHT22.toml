@@ -20,6 +20,8 @@ input = "cgpdb"
       out = 'md.out'
       frequency = 1000
 
+[basepair]
+allow_tetraloop = false
 
 [MD]
 step = 200000
