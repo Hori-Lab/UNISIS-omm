@@ -183,6 +183,52 @@ else:
     simu.box = tomldata['system']['box']
  
 
+#######################
+# Parameters setup
+#######################
+
+print ('Parameters set up')
+
+if 'fftoml' in tomldata['files']['in']:
+    tomlff = toml.load(tomldata['files']['in']['fftoml'])
+    print('Loading tomlff: ' + tomldata['files']['in']['fftoml'])
+    print('')
+else:
+    tomlff = None
+
+print ('Backbone parameters:')
+if tomlff is not None:
+    bond_k  = tomlff['potential']['bond']['k'] * unit.kilocalorie_per_mole/(unit.angstrom**2)
+    bond_r0 = tomlff['potential']['bond']['r0'] * unit.angstrom
+else:
+    bond_k  = 15.0 * unit.kilocalorie_per_mole/(unit.angstrom**2)
+    bond_r0 = 5.9 * unit.angstrom
+print ('    bond_k = ', bond_k)
+print ('    bond_r0 = ', bond_r0)
+
+if tomlff is not None:
+    angle_k  = tomlff['potential']['angle']['k'] * unit.kilocalorie_per_mole/(unit.radian**2)
+    angle_a0 = tomlff['potential']['angle']['a0'] * unit.radian
+else:
+    angle_k  = 10.0 * unit.kilocalorie_per_mole/(unit.radian**2)
+    angle_a0 = 2.618 * unit.radian
+print ('    angle_k = ', angle_k)
+print ('    angle_a0 = ', angle_a0)
+print ('')
+
+print ('Excluded volume parameters:')
+if tomlff is not None:
+    wca_epsilon = tomlff['potential']['wca']['epsilon'] * unit.kilocalorie_per_mole
+    wca_sigma   = tomlff['potential']['wca']['sigma'] * unit.angstrom
+else:
+    wca_epsilon = 2.0 * unit.kilocalorie_per_mole
+    wca_sigma   = 10.0 * unit.angstrom
+wca_cutoff  = wca_sigma
+print ('    wca_epsilon = ', wca_epsilon)
+print ('    wca_sigma = ', wca_sigma)
+print ('')
+
+
 print('Basepair parameters')
 
 try:
@@ -191,19 +237,135 @@ try:
     Hbond_Uhb_GU = tomldata['basepair']['Uhb_GU'] * unit.kilocalorie_per_mole
 
 except KeyError:
-    '   WARNING: [basepair] was not found in the input file. Default values are set as follows.'
-    Hbond_Uhb = -2.45
-    Hbond_Uhb_GC = 3 * Hbond_Uhb * unit.kilocalorie_per_mole
-    Hbond_Uhb_AU = 2 * Hbond_Uhb * unit.kilocalorie_per_mole
-    Hbond_Uhb_GU = 2 * Hbond_Uhb * unit.kilocalorie_per_mole
+    if tomlff is not None:
+        Hbond_Uhb_GC = tomlff['potential']['basepair']['GC']['U0'] * unit.kilocalorie_per_mole
+        Hbond_Uhb_AU = tomlff['potential']['basepair']['AU']['U0'] * unit.kilocalorie_per_mole
+        Hbond_Uhb_GU = tomlff['potential']['basepair']['GU']['U0'] * unit.kilocalorie_per_mole
+
+    else:
+        print('   WARNING: [basepair] was not found in the input file. Default values are set as follows.')
+        Hbond_Uhb = -2.45
+        Hbond_Uhb_GC = 3 * Hbond_Uhb * unit.kilocalorie_per_mole
+        Hbond_Uhb_AU = 2 * Hbond_Uhb * unit.kilocalorie_per_mole
+        Hbond_Uhb_GU = 2 * Hbond_Uhb * unit.kilocalorie_per_mole
 
 except:
     print('Unknown error occurred in reading [basepair].')
     sys.exit(2)
 
-print('    Uhb_GC ', Hbond_Uhb_GC)
-print('    Uhb_AU ', Hbond_Uhb_AU)
-print('    Uhb_GU ', Hbond_Uhb_GU)
+if tomlff is not None:
+    Hbond_Uhb_GC = tomlff['potential']['basepair']['GC']['U0'] * unit.kilocalorie_per_mole
+    Hbond_Uhb_AU = tomlff['potential']['basepair']['AU']['U0'] * unit.kilocalorie_per_mole
+    Hbond_Uhb_GU = tomlff['potential']['basepair']['GU']['U0'] * unit.kilocalorie_per_mole
+
+    Hbond_bond_k_GC = tomlff['potential']['basepair']['GC']['bond_k'] / unit.angstrom**2
+    Hbond_bond_k_AU = tomlff['potential']['basepair']['AU']['bond_k'] / unit.angstrom**2
+    Hbond_bond_k_GU = tomlff['potential']['basepair']['GU']['bond_k'] / unit.angstrom**2
+    Hbond_bond_r_GC = tomlff['potential']['basepair']['GC']['bond_r'] * unit.angstrom
+    Hbond_bond_r_AU = tomlff['potential']['basepair']['AU']['bond_r'] * unit.angstrom
+    Hbond_bond_r_GU = tomlff['potential']['basepair']['GU']['bond_r'] * unit.angstrom
+
+    Hbond_angl_k1_GC = tomlff['potential']['basepair']['GC']['angl_k1'] / unit.radian**2
+    Hbond_angl_k1_AU = tomlff['potential']['basepair']['AU']['angl_k1'] / unit.radian**2
+    Hbond_angl_k1_GU = tomlff['potential']['basepair']['GU']['angl_k1'] / unit.radian**2
+    Hbond_angl_k2_GC = tomlff['potential']['basepair']['GC']['angl_k2'] / unit.radian**2
+    Hbond_angl_k2_AU = tomlff['potential']['basepair']['AU']['angl_k2'] / unit.radian**2
+    Hbond_angl_k2_GU = tomlff['potential']['basepair']['GU']['angl_k2'] / unit.radian**2
+    Hbond_theta1_GC = tomlff['potential']['basepair']['GC']['angl_theta1'] * unit.radian
+    Hbond_theta1_AU = tomlff['potential']['basepair']['AU']['angl_theta1'] * unit.radian
+    Hbond_theta1_GU = tomlff['potential']['basepair']['GU']['angl_theta1'] * unit.radian
+    Hbond_theta2_GC = tomlff['potential']['basepair']['GC']['angl_theta2'] * unit.radian
+    Hbond_theta2_AU = tomlff['potential']['basepair']['AU']['angl_theta2'] * unit.radian
+    Hbond_theta2_GU = tomlff['potential']['basepair']['GU']['angl_theta2'] * unit.radian
+
+    Hbond_dihd_k1_GC = tomlff['potential']['basepair']['GC']['dihd_k1']
+    Hbond_dihd_k1_AU = tomlff['potential']['basepair']['AU']['dihd_k1']
+    Hbond_dihd_k1_GU = tomlff['potential']['basepair']['GU']['dihd_k1']
+    Hbond_dihd_k2_GC = tomlff['potential']['basepair']['GC']['dihd_k2']
+    Hbond_dihd_k2_AU = tomlff['potential']['basepair']['AU']['dihd_k2']
+    Hbond_dihd_k2_GU = tomlff['potential']['basepair']['GU']['dihd_k2']
+    Hbond_phi1_GC = tomlff['potential']['basepair']['GC']['dihd_phi1'] * unit.radian
+    Hbond_phi1_AU = tomlff['potential']['basepair']['AU']['dihd_phi1'] * unit.radian
+    Hbond_phi1_GU = tomlff['potential']['basepair']['GU']['dihd_phi1'] * unit.radian
+    Hbond_phi2_GC = tomlff['potential']['basepair']['GC']['dihd_phi2'] * unit.radian
+    Hbond_phi2_AU = tomlff['potential']['basepair']['AU']['dihd_phi2'] * unit.radian
+    Hbond_phi2_GU = tomlff['potential']['basepair']['GU']['dihd_phi2'] * unit.radian
+
+else:
+    Hbond_Uhb = -2.45
+    Hbond_Uhb_GC = 3 * Hbond_Uhb * unit.kilocalorie_per_mole
+    Hbond_Uhb_AU = 2 * Hbond_Uhb * unit.kilocalorie_per_mole
+    Hbond_Uhb_GU = 2 * Hbond_Uhb * unit.kilocalorie_per_mole
+
+    Hbond_bond_k_GC = 3./unit.angstrom**2
+    Hbond_bond_k_AU = 3./unit.angstrom**2
+    Hbond_bond_k_GU = 3./unit.angstrom**2
+    Hbond_bond_r_GC = 13.8*unit.angstrom
+    Hbond_bond_r_AU = 13.8*unit.angstrom
+    Hbond_bond_r_GU = 13.8*unit.angstrom
+
+    Hbond_angl_k1_GC = 3.2/unit.radian**2
+    Hbond_angl_k1_AU = 3.2/unit.radian**2
+    Hbond_angl_k1_GU = 3.2/unit.radian**2
+    Hbond_angl_k2_GC = 3.2/unit.radian**2
+    Hbond_angl_k2_AU = 3.2/unit.radian**2
+    Hbond_angl_k2_GU = 3.2/unit.radian**2
+    Hbond_theta1_GC = 1.8326*unit.radian
+    Hbond_theta1_AU = 1.8326*unit.radian
+    Hbond_theta1_GU = 1.8326*unit.radian
+    Hbond_theta2_GC = 0.9425*unit.radian
+    Hbond_theta2_AU = 0.9425*unit.radian
+    Hbond_theta2_GU = 0.9425*unit.radian
+
+    Hbond_dihd_k1_GC = 1.3
+    Hbond_dihd_k1_AU = 1.3
+    Hbond_dihd_k1_GU = 1.3
+    Hbond_dihd_k2_GC = 1.3
+    Hbond_dihd_k2_AU = 1.3
+    Hbond_dihd_k2_GU = 1.3
+    Hbond_phi1_GC = 1.8326*unit.radian
+    Hbond_phi1_AU = 1.8326*unit.radian
+    Hbond_phi1_GU = 1.8326*unit.radian
+    Hbond_phi2_GC = 1.1345*unit.radian
+    Hbond_phi2_AU = 1.1345*unit.radian
+    Hbond_phi2_GU = 1.1345*unit.radian
+
+Hbond_cutoff = 1.8*unit.nanometers
+
+print('    Uhb_GC = ', Hbond_Uhb_GC)
+print('    Uhb_AU = ', Hbond_Uhb_AU)
+print('    Uhb_GU = ', Hbond_Uhb_GU)
+print('    bond_k_GC = ', Hbond_bond_k_GC)
+print('    bond_k_AU = ', Hbond_bond_k_AU)
+print('    bond_k_GU = ', Hbond_bond_k_GU)
+print('    bond_r_GC = ', Hbond_bond_r_GC)
+print('    bond_r_AU = ', Hbond_bond_r_AU)
+print('    bond_r_GU = ', Hbond_bond_r_GU)
+print('    angl_k1_GC = ', Hbond_angl_k1_GC)
+print('    angl_k1_AU = ', Hbond_angl_k1_AU)
+print('    angl_k1_GU = ', Hbond_angl_k1_GU)
+print('    angl_k2_GC = ', Hbond_angl_k2_GC)
+print('    angl_k2_AU = ', Hbond_angl_k2_AU)
+print('    angl_k2_GU = ', Hbond_angl_k2_GU)
+print('    angl_theta1_GC = ', Hbond_theta1_GC)
+print('    angl_theta1_AU = ', Hbond_theta1_AU)
+print('    angl_theta1_GU = ', Hbond_theta1_GU)
+print('    angl_theta2_GC = ', Hbond_theta2_GC)
+print('    angl_theta2_AU = ', Hbond_theta2_AU)
+print('    angl_theta2_GU = ', Hbond_theta2_GU)
+print('    dihd_k1_GC = ', Hbond_dihd_k1_GC)
+print('    dihd_k1_AU = ', Hbond_dihd_k1_AU)
+print('    dihd_k1_GU = ', Hbond_dihd_k1_GU)
+print('    dihd_k2_GC = ', Hbond_dihd_k2_GC)
+print('    dihd_k2_AU = ', Hbond_dihd_k2_AU)
+print('    dihd_k2_GU = ', Hbond_dihd_k2_GU)
+print('    dihd_phi1_GC = ', Hbond_phi1_GC)
+print('    dihd_phi1_AU = ', Hbond_phi1_AU)
+print('    dihd_phi1_GU = ', Hbond_phi1_GU)
+print('    dihd_phi2_GC = ', Hbond_phi2_GC)
+print('    dihd_phi2_AU = ', Hbond_phi2_AU)
+print('    dihd_phi2_GU = ', Hbond_phi2_GU)
+print('    bond_cutoff = ', Hbond_cutoff)
 print('')
 
 if tomldata['job']['type'] == 'MD':
@@ -351,7 +513,7 @@ groupnames = []
 ########## bond force
 bondforce = omm.HarmonicBondForce()
 for bond in topology.bonds():
-    bondforce.addBond(bond[0].index, bond[1].index, 5.9*unit.angstroms, 15.0*unit.kilocalorie_per_mole/(unit.angstrom**2))
+    bondforce.addBond(bond[0].index, bond[1].index, bond_r0, bond_k)
 
 bondforce.setUsesPeriodicBoundaryConditions(False)
 totalforcegroup += 1
@@ -368,7 +530,7 @@ for chain in topology.chains():
         if prev == None or nxt == None:
             continue
 
-        angleforce.addAngle(prev.index, item.index, nxt.index, 2.618*unit.radian, 10.0*unit.kilocalorie_per_mole/(unit.radians**2))
+        angleforce.addAngle(prev.index, item.index, nxt.index, angle_a0, angle_k)
 
 angleforce.setUsesPeriodicBoundaryConditions(False)
 totalforcegroup += 1
@@ -378,13 +540,12 @@ groupnames.append("Uangl")
 system.addForce(angleforce)
 
 ######## WCA force
-WCA_cutoff = 10.*unit.angstroms
 energy_function =  'step(sig-r) * ep * ((R6 - 2)*R6 + 1);'
 energy_function += 'R6=(sig/r)^6;'
 
 WCAforce = omm.CustomNonbondedForce(energy_function)
-WCAforce.addGlobalParameter('ep',  2.*unit.kilocalorie_per_mole)
-WCAforce.addGlobalParameter('sig', WCA_cutoff)
+WCAforce.addGlobalParameter('ep',  wca_epsilon)
+WCAforce.addGlobalParameter('sig', wca_sigma)
 
 for atom in topology.atoms():
     WCAforce.addParticle([])
@@ -398,7 +559,7 @@ for chain in topology.chains():
             continue
         WCAforce.addExclusion(atm_index(prev), atm_index(nxt))
 
-WCAforce.setCutoffDistance(WCA_cutoff)
+WCAforce.setCutoffDistance(wca_cutoff)
 totalforcegroup += 1
 WCAforce.setForceGroup(totalforcegroup)
 print("Force group WCA: ", totalforcegroup)
@@ -434,36 +595,28 @@ if simu.Kconc >= 0.:
 
 ###### Hbond
 energy_function =  "- kr*(distance(a1, d1) - r0)^2"
-energy_function += "- kt*(angle(a1, d1, d2) - theta1)^2"
-energy_function += "- kt*(angle(d1, a1, a2) - theta1)^2"
-energy_function += "- kt*(angle(a1, d1, d3) - theta2)^2"
-energy_function += "- kt*(angle(d1, a1, a3) - theta2)^2"
-energy_function += "- kp*(1. + cos(dihedral(d2, d1, a1, a2) + phi1))"
-energy_function += "- kp*(1. + cos(dihedral(d3, d1, a1, a3) + phi2))"
+energy_function += "- kt1*(angle(a1, d1, d2) - theta1)^2"
+energy_function += "- kt1*(angle(d1, a1, a2) - theta1)^2"
+energy_function += "- kt2*(angle(a1, d1, d3) - theta2)^2"
+energy_function += "- kt2*(angle(d1, a1, a3) - theta2)^2"
+energy_function += "- kp1*(1. + cos(dihedral(d2, d1, a1, a2) + phi1))"
+energy_function += "- kp2*(1. + cos(dihedral(d3, d1, a1, a3) + phi2))"
 
 energy_function = "Uhb * exp(" + energy_function + ")"
 
-bondlength = 1.38*unit.nanometers
-kr = 3./unit.angstrom**2
-kt = 3.2/unit.radian**2
-kp = 1.3
-theta1 = 1.8326*unit.radians
-theta2 = 0.9425*unit.radians
-phi1 = 1.8326*unit.radians
-phi2 = 1.1345*unit.radians
-cutoff = 1.8*unit.nanometers
-
 HbAUforce = omm.CustomHbondForce(energy_function)
 HbAUforce.addGlobalParameter('Uhb', Hbond_Uhb_AU)
-HbAUforce.addGlobalParameter('r0', bondlength)
-HbAUforce.addGlobalParameter('kr', kr)
-HbAUforce.addGlobalParameter('kt', kt)
-HbAUforce.addGlobalParameter('kp', kp)
-HbAUforce.addGlobalParameter('theta1', theta1)
-HbAUforce.addGlobalParameter('theta2', theta2)
-HbAUforce.addGlobalParameter('phi1', phi1)
-HbAUforce.addGlobalParameter('phi2', phi2)
-HbAUforce.setCutoffDistance(cutoff)
+HbAUforce.addGlobalParameter('r0', Hbond_bond_r_AU)
+HbAUforce.addGlobalParameter('kr', Hbond_bond_k_AU)
+HbAUforce.addGlobalParameter('kt1', Hbond_angl_k1_AU)
+HbAUforce.addGlobalParameter('kt2', Hbond_angl_k2_AU)
+HbAUforce.addGlobalParameter('kp1', Hbond_dihd_k1_AU)
+HbAUforce.addGlobalParameter('kp2', Hbond_dihd_k2_AU)
+HbAUforce.addGlobalParameter('theta1', Hbond_theta1_AU)
+HbAUforce.addGlobalParameter('theta2', Hbond_theta2_AU)
+HbAUforce.addGlobalParameter('phi1', Hbond_phi1_AU)
+HbAUforce.addGlobalParameter('phi2', Hbond_phi2_AU)
+HbAUforce.setCutoffDistance(Hbond_cutoff)
 HbAUforce.setNonbondedMethod(omm.CustomHbondForce.CutoffNonPeriodic)
 totalforcegroup += 1
 HbAUforce.setForceGroup(totalforcegroup)
@@ -473,15 +626,17 @@ groupnames.append("Ubp(A-U)")
 
 HbGCforce = omm.CustomHbondForce(energy_function)
 HbGCforce.addGlobalParameter('Uhb', Hbond_Uhb_GC)
-HbGCforce.addGlobalParameter('r0', bondlength)
-HbGCforce.addGlobalParameter('kr', kr)
-HbGCforce.addGlobalParameter('kt', kt)
-HbGCforce.addGlobalParameter('kp', kp)
-HbGCforce.addGlobalParameter('theta1', theta1)
-HbGCforce.addGlobalParameter('theta2', theta2)
-HbGCforce.addGlobalParameter('phi1', phi1)
-HbGCforce.addGlobalParameter('phi2', phi2)
-HbGCforce.setCutoffDistance(cutoff)
+HbGCforce.addGlobalParameter('r0', Hbond_bond_r_GC)
+HbGCforce.addGlobalParameter('kr', Hbond_bond_k_GC)
+HbGCforce.addGlobalParameter('kt1', Hbond_angl_k1_GC)
+HbGCforce.addGlobalParameter('kt2', Hbond_angl_k2_GC)
+HbGCforce.addGlobalParameter('kp1', Hbond_dihd_k1_GC)
+HbGCforce.addGlobalParameter('kp2', Hbond_dihd_k2_GC)
+HbGCforce.addGlobalParameter('theta1', Hbond_theta1_GC)
+HbGCforce.addGlobalParameter('theta2', Hbond_theta2_GC)
+HbGCforce.addGlobalParameter('phi1', Hbond_phi1_GC)
+HbGCforce.addGlobalParameter('phi2', Hbond_phi2_GC)
+HbGCforce.setCutoffDistance(Hbond_cutoff)
 HbGCforce.setNonbondedMethod(omm.CustomHbondForce.CutoffNonPeriodic)
 totalforcegroup += 1
 HbGCforce.setForceGroup(totalforcegroup)
@@ -491,15 +646,17 @@ groupnames.append("Ubp(G-C)")
 
 HbGUforce = omm.CustomHbondForce(energy_function)
 HbGUforce.addGlobalParameter('Uhb', Hbond_Uhb_GU)
-HbGUforce.addGlobalParameter('r0', bondlength)
-HbGUforce.addGlobalParameter('kr', kr)
-HbGUforce.addGlobalParameter('kt', kt)
-HbGUforce.addGlobalParameter('kp', kp)
-HbGUforce.addGlobalParameter('theta1', theta1)
-HbGUforce.addGlobalParameter('theta2', theta2)
-HbGUforce.addGlobalParameter('phi1', phi1)
-HbGUforce.addGlobalParameter('phi2', phi2)
-HbGUforce.setCutoffDistance(cutoff)
+HbGUforce.addGlobalParameter('r0', Hbond_bond_r_GU)
+HbGUforce.addGlobalParameter('kr', Hbond_bond_k_GU)
+HbGUforce.addGlobalParameter('kt1', Hbond_angl_k1_GU)
+HbGUforce.addGlobalParameter('kt2', Hbond_angl_k2_GU)
+HbGUforce.addGlobalParameter('kp1', Hbond_dihd_k1_GU)
+HbGUforce.addGlobalParameter('kp2', Hbond_dihd_k2_GU)
+HbGUforce.addGlobalParameter('theta1', Hbond_theta1_GU)
+HbGUforce.addGlobalParameter('theta2', Hbond_theta2_GU)
+HbGUforce.addGlobalParameter('phi1', Hbond_phi1_GU)
+HbGUforce.addGlobalParameter('phi2', Hbond_phi2_GU)
+HbGUforce.setCutoffDistance(Hbond_cutoff)
 HbGUforce.setNonbondedMethod(omm.CustomHbondForce.CutoffNonPeriodic)
 totalforcegroup += 1
 HbGUforce.setForceGroup(totalforcegroup)

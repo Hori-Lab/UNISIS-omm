@@ -1,0 +1,26 @@
+title = "sis input"
+
+[job]
+type = "MD"
+
+[system]
+input = "cgpdb"
+
+[files]
+      [files.in]
+      ffxml = "./rna_cg1.xml"
+      fftoml = "./rna_NHT22.ff"
+      cgpdb = "S2HP_random.pdb"
+
+      [files.out]
+      dcd = './md.dcd'
+      energy = './energy.out'
+      restart = './checkpnt.chk'
+      BPexclusion = "./BPexclusion.txt"
+      out = 'md.out'
+      frequency = 1000
+
+
+[MD]
+step = 200000
+temperature = 310.15
