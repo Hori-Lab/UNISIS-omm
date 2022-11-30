@@ -600,28 +600,45 @@ if simu.Kconc >= 0.:
     system.addForce(DHforce)
 
 ###### Hbond
-energy_function =  "- kr*(distance(a1, d1) - r0)^2"
-energy_function += "- kt1*(angle(a1, d1, d2) - theta1)^2"
-energy_function += "- kt1*(angle(d1, a1, a2) - theta1)^2"
-energy_function += "- kt2*(angle(a1, d1, d3) - theta2)^2"
-energy_function += "- kt2*(angle(d1, a1, a3) - theta2)^2"
-energy_function += "- kp1*(1. + cos(dihedral(d2, d1, a1, a2) + phi1))"
-energy_function += "- kp2*(1. + cos(dihedral(d3, d1, a1, a3) + phi2))"
+energy_functionGC =  "- krGC*(distance(a1, d1) - r0GC)^2"
+energy_functionGC += "- kt1GC*(angle(a1, d1, d2) - theta1GC)^2"
+energy_functionGC += "- kt1GC*(angle(d1, a1, a2) - theta1GC)^2"
+energy_functionGC += "- kt2GC*(angle(a1, d1, d3) - theta2GC)^2"
+energy_functionGC += "- kt2GC*(angle(d1, a1, a3) - theta2GC)^2"
+energy_functionGC += "- kp1GC*(1. + cos(dihedral(d2, d1, a1, a2) + phi1GC))"
+energy_functionGC += "- kp2GC*(1. + cos(dihedral(d3, d1, a1, a3) + phi2GC))"
+energy_functionGC = "UhbGC * exp(" + energy_functionGC + ")"
 
-energy_function = "Uhb * exp(" + energy_function + ")"
+energy_functionAU =  "- krAU*(distance(a1, d1) - r0AU)^2"
+energy_functionAU += "- kt1AU*(angle(a1, d1, d2) - theta1AU)^2"
+energy_functionAU += "- kt1AU*(angle(d1, a1, a2) - theta1AU)^2"
+energy_functionAU += "- kt2AU*(angle(a1, d1, d3) - theta2AU)^2"
+energy_functionAU += "- kt2AU*(angle(d1, a1, a3) - theta2AU)^2"
+energy_functionAU += "- kp1AU*(1. + cos(dihedral(d2, d1, a1, a2) + phi1AU))"
+energy_functionAU += "- kp2AU*(1. + cos(dihedral(d3, d1, a1, a3) + phi2AU))"
+energy_functionAU = "UhbAU * exp(" + energy_functionAU + ")"
 
-HbAUforce = omm.CustomHbondForce(energy_function)
-HbAUforce.addGlobalParameter('Uhb', Hbond_Uhb_AU)
-HbAUforce.addGlobalParameter('r0', Hbond_bond_r_AU)
-HbAUforce.addGlobalParameter('kr', Hbond_bond_k_AU)
-HbAUforce.addGlobalParameter('kt1', Hbond_angl_k1_AU)
-HbAUforce.addGlobalParameter('kt2', Hbond_angl_k2_AU)
-HbAUforce.addGlobalParameter('kp1', Hbond_dihd_k1_AU)
-HbAUforce.addGlobalParameter('kp2', Hbond_dihd_k2_AU)
-HbAUforce.addGlobalParameter('theta1', Hbond_theta1_AU)
-HbAUforce.addGlobalParameter('theta2', Hbond_theta2_AU)
-HbAUforce.addGlobalParameter('phi1', Hbond_phi1_AU)
-HbAUforce.addGlobalParameter('phi2', Hbond_phi2_AU)
+energy_functionGU =  "- krGU*(distance(a1, d1) - r0GU)^2"
+energy_functionGU += "- kt1GU*(angle(a1, d1, d2) - theta1GU)^2"
+energy_functionGU += "- kt1GU*(angle(d1, a1, a2) - theta1GU)^2"
+energy_functionGU += "- kt2GU*(angle(a1, d1, d3) - theta2GU)^2"
+energy_functionGU += "- kt2GU*(angle(d1, a1, a3) - theta2GU)^2"
+energy_functionGU += "- kp1GU*(1. + cos(dihedral(d2, d1, a1, a2) + phi1GU))"
+energy_functionGU += "- kp2GU*(1. + cos(dihedral(d3, d1, a1, a3) + phi2GU))"
+energy_functionGU = "UhbGU * exp(" + energy_functionGU + ")"
+
+HbAUforce = omm.CustomHbondForce(energy_functionAU)
+HbAUforce.addGlobalParameter('UhbAU', Hbond_Uhb_AU)
+HbAUforce.addGlobalParameter('r0AU', Hbond_bond_r_AU)
+HbAUforce.addGlobalParameter('krAU', Hbond_bond_k_AU)
+HbAUforce.addGlobalParameter('kt1AU', Hbond_angl_k1_AU)
+HbAUforce.addGlobalParameter('kt2AU', Hbond_angl_k2_AU)
+HbAUforce.addGlobalParameter('kp1AU', Hbond_dihd_k1_AU)
+HbAUforce.addGlobalParameter('kp2AU', Hbond_dihd_k2_AU)
+HbAUforce.addGlobalParameter('theta1AU', Hbond_theta1_AU)
+HbAUforce.addGlobalParameter('theta2AU', Hbond_theta2_AU)
+HbAUforce.addGlobalParameter('phi1AU', Hbond_phi1_AU)
+HbAUforce.addGlobalParameter('phi2AU', Hbond_phi2_AU)
 HbAUforce.setCutoffDistance(Hbond_cutoff)
 HbAUforce.setNonbondedMethod(omm.CustomHbondForce.CutoffNonPeriodic)
 totalforcegroup += 1
@@ -630,18 +647,18 @@ print("Force group H-bond AU: ", totalforcegroup)
 groupnames.append("Ubp(A-U)")
 #HbAUforce.usesPeriodicBoundaryConditions()
 
-HbGCforce = omm.CustomHbondForce(energy_function)
-HbGCforce.addGlobalParameter('Uhb', Hbond_Uhb_GC)
-HbGCforce.addGlobalParameter('r0', Hbond_bond_r_GC)
-HbGCforce.addGlobalParameter('kr', Hbond_bond_k_GC)
-HbGCforce.addGlobalParameter('kt1', Hbond_angl_k1_GC)
-HbGCforce.addGlobalParameter('kt2', Hbond_angl_k2_GC)
-HbGCforce.addGlobalParameter('kp1', Hbond_dihd_k1_GC)
-HbGCforce.addGlobalParameter('kp2', Hbond_dihd_k2_GC)
-HbGCforce.addGlobalParameter('theta1', Hbond_theta1_GC)
-HbGCforce.addGlobalParameter('theta2', Hbond_theta2_GC)
-HbGCforce.addGlobalParameter('phi1', Hbond_phi1_GC)
-HbGCforce.addGlobalParameter('phi2', Hbond_phi2_GC)
+HbGCforce = omm.CustomHbondForce(energy_functionGC)
+HbGCforce.addGlobalParameter('UhbGC', Hbond_Uhb_GC)
+HbGCforce.addGlobalParameter('r0GC', Hbond_bond_r_GC)
+HbGCforce.addGlobalParameter('krGC', Hbond_bond_k_GC)
+HbGCforce.addGlobalParameter('kt1GC', Hbond_angl_k1_GC)
+HbGCforce.addGlobalParameter('kt2GC', Hbond_angl_k2_GC)
+HbGCforce.addGlobalParameter('kp1GC', Hbond_dihd_k1_GC)
+HbGCforce.addGlobalParameter('kp2GC', Hbond_dihd_k2_GC)
+HbGCforce.addGlobalParameter('theta1GC', Hbond_theta1_GC)
+HbGCforce.addGlobalParameter('theta2GC', Hbond_theta2_GC)
+HbGCforce.addGlobalParameter('phi1GC', Hbond_phi1_GC)
+HbGCforce.addGlobalParameter('phi2GC', Hbond_phi2_GC)
 HbGCforce.setCutoffDistance(Hbond_cutoff)
 HbGCforce.setNonbondedMethod(omm.CustomHbondForce.CutoffNonPeriodic)
 totalforcegroup += 1
@@ -650,18 +667,18 @@ print("Force group H-bond GC: ", totalforcegroup)
 groupnames.append("Ubp(G-C)")
 #HbGCforce.usesPeriodicBoundaryConditions()
 
-HbGUforce = omm.CustomHbondForce(energy_function)
-HbGUforce.addGlobalParameter('Uhb', Hbond_Uhb_GU)
-HbGUforce.addGlobalParameter('r0', Hbond_bond_r_GU)
-HbGUforce.addGlobalParameter('kr', Hbond_bond_k_GU)
-HbGUforce.addGlobalParameter('kt1', Hbond_angl_k1_GU)
-HbGUforce.addGlobalParameter('kt2', Hbond_angl_k2_GU)
-HbGUforce.addGlobalParameter('kp1', Hbond_dihd_k1_GU)
-HbGUforce.addGlobalParameter('kp2', Hbond_dihd_k2_GU)
-HbGUforce.addGlobalParameter('theta1', Hbond_theta1_GU)
-HbGUforce.addGlobalParameter('theta2', Hbond_theta2_GU)
-HbGUforce.addGlobalParameter('phi1', Hbond_phi1_GU)
-HbGUforce.addGlobalParameter('phi2', Hbond_phi2_GU)
+HbGUforce = omm.CustomHbondForce(energy_functionGU)
+HbGUforce.addGlobalParameter('UhbGU', Hbond_Uhb_GU)
+HbGUforce.addGlobalParameter('r0GU', Hbond_bond_r_GU)
+HbGUforce.addGlobalParameter('krGU', Hbond_bond_k_GU)
+HbGUforce.addGlobalParameter('kt1GU', Hbond_angl_k1_GU)
+HbGUforce.addGlobalParameter('kt2GU', Hbond_angl_k2_GU)
+HbGUforce.addGlobalParameter('kp1GU', Hbond_dihd_k1_GU)
+HbGUforce.addGlobalParameter('kp2GU', Hbond_dihd_k2_GU)
+HbGUforce.addGlobalParameter('theta1GU', Hbond_theta1_GU)
+HbGUforce.addGlobalParameter('theta2GU', Hbond_theta2_GU)
+HbGUforce.addGlobalParameter('phi1GU', Hbond_phi1_GU)
+HbGUforce.addGlobalParameter('phi2GU', Hbond_phi2_GU)
 HbGUforce.setCutoffDistance(Hbond_cutoff)
 HbGUforce.setNonbondedMethod(omm.CustomHbondForce.CutoffNonPeriodic)
 totalforcegroup += 1
