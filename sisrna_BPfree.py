@@ -49,6 +49,9 @@ parser.add_argument('-T','--temperature', type=float, default='300.0',
 parser.add_argument('-a','--angle', action='store_true',
                     help='Enable the angle potential')
 
+parser.add_argument('-d','--dihexp', action='store_true',
+                    help='Enable the dihedral potential (exponential form)')
+
 parser.add_argument('-I','--ionic_strength', type=float, default='-1.',
                     help='Ionic strength (M) [Default: no electrostatic (-1)]')
 parser.add_argument('-c','--cutoff', type=float, default='30.',
@@ -98,6 +101,7 @@ class simu:    ### structure to group all simulation parameter
     steplist = []
 
 flg_angle = args.angle
+flg_dihexp = args.dihexp
 
 # Output the date
 from datetime import datetime
@@ -123,15 +127,23 @@ print('')
 print ('Parameters set up')
 
 print ('Backbone parameters:')
-bond_k  = 15.0 * unit.kilocalorie_per_mole/(unit.angstrom**2)
-bond_r0 = 5.9 * unit.angstrom
+bond_k  = 1.5 * unit.kilocalorie_per_mole/(unit.angstrom**2)
+bond_r0 = 5.84 * unit.angstrom
 print ('    bond_k = ', bond_k)
 print ('    bond_r0 = ', bond_r0)
 
-angle_k  = 10.0 * unit.kilocalorie_per_mole/(unit.radian**2)
-angle_a0 = 2.618 * unit.radian
+angle_k  = 5.0 * unit.kilocalorie_per_mole/(unit.radian**2)
+angle_a0 = 2.643 * unit.radian
 print ('    angle_k = ', angle_k)
 print ('    angle_a0 = ', angle_a0)
+print ('')
+
+dihexp_k = 1.4 * unit.kilocalorie_per_mole
+dihexp_w = 3.0 /(unit.radian**2)
+dihexp_p0 = 0.28 * unit.radian
+print ('    dihexp_k = ', dihexp_k)
+print ('    dihexp_w = ', dihexp_w)
+print ('    dihexp_p0 = ', dihexp_p0)
 print ('')
 
 print ('Excluded volume parameters:')
@@ -234,14 +246,14 @@ system.addForce(bondforce)
 ########## angle force
 if flg_angle:
     angleforce = omm.HarmonicAngleForce()
-    
+
     for chain in topology.chains():
         for prev, item, nxt in prev_and_next(chain.residues()):
             if prev == None or nxt == None:
                 continue
-    
+
             angleforce.addAngle(prev.index, item.index, nxt.index, angle_a0, angle_k)
-    
+
     angleforce.setUsesPeriodicBoundaryConditions(False)
     totalforcegroup += 1
     angleforce.setForceGroup(totalforcegroup)
@@ -250,25 +262,26 @@ if flg_angle:
     system.addForce(angleforce)
 
 ########### dihedral (exp) force
-#if flg_dih:
-#    dihedral_energy_function = 'dih_k * exp(ceof * (theta - dih_theta_0)**2)'
-#
-#    dihedralforce = omm.CustomTorsionForce(dihedral_energy_function)
-#    force.addPerTorsionParameter("dih_k");
-#    force.addPerTorsionParameter("dih_theta_0");
-#    
-#    for chain in topology.chains():
-#        for prev, item, nxt, aft in prev_and_next_and_after(chain.residues()):
-#            if prev == None or aft == None:
-#                continue
-#    
-#            dihedralforce.addTorsion(prev.index, item.index, nxt.index, aft.index, [dihedral_k, dihedral_a0])
-#    
-#    totalforcegroup += 1
-#    dihedralforce.setForceGroup(totalforcegroup)
-#    print("Force group dihedral: ", totalforcegroup)
-#    groupnames.append("Udih")
-#    system.addForce(dihedralforce)
+if flg_dihexp:
+    dihedral_energy_function = 'dihexp_k * exp(-0.5 * dihexp_w * (theta - dihexp_p0)^2)'
+
+    dihedralforce = omm.CustomTorsionForce(dihedral_energy_function)
+    dihedralforce.addPerTorsionParameter("dihexp_k");
+    dihedralforce.addPerTorsionParameter("dihexp_w");
+    dihedralforce.addPerTorsionParameter("dihexp_p0");
+
+    for chain in topology.chains():
+        for prev, item, nxt, aft in prev_and_next_and_after(chain.residues()):
+            if prev == None or aft == None:
+                continue
+
+            dihedralforce.addTorsion(prev.index, item.index, nxt.index, aft.index, [dihexp_k, dihexp_w, dihexp_p0])
+
+    totalforcegroup += 1
+    dihedralforce.setForceGroup(totalforcegroup)
+    print("Force group dihedral: ", totalforcegroup)
+    groupnames.append("Udih")
+    system.addForce(dihedralforce)
 
 
 ######## WCA force
