@@ -39,7 +39,7 @@ for ((i=0;i<${#Ns[@]};++i)); do
     time ../sismm/sisrna_BPfree.py --inixyz $initial \
                  --step 100000 --temperature 300.0 \
                  --angle \
-                 --ionic_strength 0.200 --cutoff 200.0 \
+                 --ionic_strength 200.0 --cutoff 80.0 \
                  --traj N${N}_pre.dcd --energy N${N}_pre.energy --output N${N}_pre.out --frequency 10000 \
                  --finalxyz N${N}_pre.xyz --res_file N${N}_pre.chk \
                  1> N${N}_pre.log 2> N${N}_pre.err
@@ -48,7 +48,7 @@ for ((i=0;i<${#Ns[@]};++i)); do
     time ../sismm/sisrna_BPfree.py --inixyz N${N}_pre.xyz \
                  --step $step --temperature 300.0 \
                  --ReB --dihexp \
-                 --ionic_strength 0.200 --cutoff 200.0 \
+                 --ionic_strength 200.0 --cutoff 80.0 \
                  --traj N${N}.dcd --energy N${N}.energy --output N${N}.out --frequency $save \
                  --finalxyz N${N}.xyz --res_file N${N}.chk \
                  1> N${N}.log 2> N${N}.err
