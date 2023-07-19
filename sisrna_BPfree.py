@@ -332,7 +332,7 @@ for atom in topology.atoms():
 for bond in topology.bonds():
     WCAforce.addExclusion(bond[0].index, bond[1].index)
 
-if flg_angle:
+if flg_angle or flg_ReB:
    for chain in topology.chains():
        for prev, item, nxt in prev_and_next(chain.residues()):
            if prev == None or nxt == None:
