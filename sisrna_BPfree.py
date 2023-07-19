@@ -43,6 +43,9 @@ parser_init.add_argument('-N','--nbead', type=int, default=0, help='number of be
 parser.add_argument('-n','--step', type=int, default='10000',
                     help='Number of step [10000]')
 
+parser.add_argument('--dt', type=float, default='50.0',
+                    help='integration time step in fs [50.0]')
+
 parser.add_argument('-T','--temperature', type=float, default='300.0',
                     help='Temperature (K) [300.0]')
 
@@ -93,6 +96,7 @@ class simu:    ### structure to group all simulation parameter
     temp = args.temperature * unit.kelvin
     Kconc = args.ionic_strength
     Nstep = args.step
+    dt = args.dt
     cutoff = args.cutoff
     epsilon = 0.
     b = 4.38178046 * unit.angstrom / unit.elementary_charge
@@ -297,7 +301,7 @@ if flg_ReB:
 
 ########### dihedral (exp) force
 if flg_dihexp:
-    dihedral_energy_function = 'dihexp_k * exp(-0.5 * dihexp_w * (theta - dihexp_p0)^2)'
+    dihedral_energy_function = '-dihexp_k * exp(-0.5 * dihexp_w * (theta - dihexp_p0)^2)'
 
     dihedralforce = omm.CustomTorsionForce(dihedral_energy_function)
     dihedralforce.addPerTorsionParameter("dihexp_k");
@@ -409,7 +413,7 @@ class EnergyReporter(object):
         self._out.write("\n")
         self._out.flush()
 
-integrator = omm.LangevinIntegrator(simu.temp, 0.5/unit.picosecond, 50*unit.femtoseconds)
+integrator = omm.LangevinIntegrator(simu.temp, 0.5/unit.picosecond, simu.dt*unit.femtoseconds)
 #platform = omm.Platform.getPlatformByName('CUDA')
 #platform = omm.Platform.getPlatformByName('CPU')
 #properties = {'CudaPrecision': 'mixed'}
