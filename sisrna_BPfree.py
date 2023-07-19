@@ -6,7 +6,7 @@ from simtk import unit
 import itertools as it
 import time
 import sys
-from math import sqrt
+from math import sqrt, cos
 import argparse
 
 def prev_and_next(iterable):
@@ -48,6 +48,9 @@ parser.add_argument('-T','--temperature', type=float, default='300.0',
 
 parser.add_argument('-a','--angle', action='store_true',
                     help='Enable the angle potential')
+
+parser.add_argument('-b','--ReB', action='store_true',
+                    help='Enable the Restricted Bending potential')
 
 parser.add_argument('-d','--dihexp', action='store_true',
                     help='Enable the dihedral potential (exponential form)')
@@ -101,6 +104,7 @@ class simu:    ### structure to group all simulation parameter
     steplist = []
 
 flg_angle = args.angle
+flg_ReB = args.ReB
 flg_dihexp = args.dihexp
 
 # Output the date
@@ -132,10 +136,17 @@ bond_r0 = 5.84 * unit.angstrom
 print ('    bond_k = ', bond_k)
 print ('    bond_r0 = ', bond_r0)
 
-angle_k  = 5.0 * unit.kilocalorie_per_mole/(unit.radian**2)
+angle_k  = 10.0 * unit.kilocalorie_per_mole/(unit.radian**2)
 angle_a0 = 2.643 * unit.radian
 print ('    angle_k = ', angle_k)
 print ('    angle_a0 = ', angle_a0)
+print ('')
+
+ReB_k  = 5.0 * unit.kilocalorie_per_mole
+ReB_a0 = 2.643
+cos_ReB_a0 = cos(ReB_a0)
+print ('    ReB_k = ', ReB_k)
+print ('    ReB_a0 = ', ReB_a0 * unit.radian)
 print ('')
 
 dihexp_k = 1.4 * unit.kilocalorie_per_mole
@@ -260,6 +271,29 @@ if flg_angle:
     print("Force group angle: ", totalforcegroup)
     groupnames.append("Uangl")
     system.addForce(angleforce)
+
+########## Restricted Bending (ReB) force
+if flg_ReB:
+
+    ReB_energy_function = '0.5 * ReB_k * (cos(theta) - cos_ReB_a0)^2 / (sin(theta)^2)'
+
+    ReBforce = omm.CustomAngleForce(ReB_energy_function)
+    ReBforce.addPerAngleParameter("ReB_k");
+    ReBforce.addPerAngleParameter("cos_ReB_a0");
+
+    for chain in topology.chains():
+        for prev, item, nxt in prev_and_next(chain.residues()):
+            if prev == None or nxt == None:
+                continue
+
+            ReBforce.addAngle(prev.index, item.index, nxt.index, [ReB_k, cos_ReB_a0])
+
+    ReBforce.setUsesPeriodicBoundaryConditions(False)
+    totalforcegroup += 1
+    ReBforce.setForceGroup(totalforcegroup)
+    print("Force group ReB: ", totalforcegroup)
+    groupnames.append("Uangl")
+    system.addForce(ReBforce)
 
 ########### dihedral (exp) force
 if flg_dihexp:
