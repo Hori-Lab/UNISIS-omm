@@ -1,0 +1,56 @@
+<ForceField>
+  <AtomTypes>
+    <Type name="0" class="RA" element="Ar" mass="328.212"/>
+    <Type name="1" class="RG" element="Ga" mass="344.212"/>
+    <Type name="2" class="RC" element="C"  mass="304.182"/>
+    <Type name="3" class="RU" element="U"  mass="305.164"/>
+    <Type name="4" class="RD" element="D"  mass="300.000"/>
+  </AtomTypes>
+  <Residues>
+    <Residue name="RA">
+      <Atom name="A" type="0"/>
+      <ExternalBond atomName="A"/>
+      <ExternalBond atomName="A"/>
+    </Residue>
+    <Residue name="RAT">
+      <Atom name="A" type="0"/>
+      <ExternalBond atomName="A"/>
+    </Residue>
+    <Residue name="RG">
+      <Atom name="G" type="1"/>
+      <ExternalBond atomName="G"/>
+      <ExternalBond atomName="G"/>
+    </Residue>
+    <Residue name="RGT">
+      <Atom name="G" type="1"/>
+      <ExternalBond atomName="G"/>
+    </Residue>
+    <Residue name="RC">
+      <Atom name="C" type="2"/>
+      <ExternalBond atomName="C"/>
+      <ExternalBond atomName="C"/>
+    </Residue>
+    <Residue name="RCT">
+      <Atom name="C" type="2"/>
+      <ExternalBond atomName="C"/>
+    </Residue>
+    <Residue name="RU">
+      <Atom name="U" type="3"/>
+      <ExternalBond atomName="U"/>
+      <ExternalBond atomName="U"/>
+    </Residue>
+    <Residue name="RUT">
+      <Atom name="U" type="3"/>
+      <ExternalBond atomName="U"/>
+    </Residue>
+    <Residue name="RD">
+      <Atom name="D" type="4"/>
+      <ExternalBond atomName="D"/>
+      <ExternalBond atomName="D"/>
+    </Residue>
+    <Residue name="RDT">
+      <Atom name="D" type="4"/>
+      <ExternalBond atomName="D"/>
+    </Residue>
+  </Residues>
+</ForceField>
