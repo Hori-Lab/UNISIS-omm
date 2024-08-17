@@ -19,9 +19,9 @@ replicas: 32
 rfa: false
 seed: 10001
 steps: 5000000
-timestep: 2
-topology: ../../T2HP.psf
-coordinates: ../../T2HP_folded.dcd
+topology: ''
+coordinates: ''
+structure: ./T2HP_unfolded.pdb
 device: 'cuda:0'
 external:
   module: torchmdnet.calculators

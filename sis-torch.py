@@ -83,15 +83,35 @@ class Control:    ### structure to group all simulation parameter
     Nstep_save  = 1000
     Nstep_out   = 1000
 
-    outfile_dcd = './md.dcd'
+    infile_pdb  = './T2HP_unfolded.pdb'
     outfile_out = './md.out'
     outfile_ene = './md.ene'
+    outfile_dcd = './md.dcd'
     outfile_rst = './md.rst'
 
     temp        = 300.0 * unit.kelvin
     LD_temp     = 300.0 * unit.kelvin
     LD_gamma    = 0.5 / unit.picosecond
     LD_dt       = 50 * unit.femtoseconds
+
+    def print(self):
+        print('Control:')
+        print('    restart:', self.restart)
+        print('    restart_file:', self.restart_file)
+        print('    minimization:', self.minimization)
+        print('    Nstep:', self.Nstep)
+        print('    Nstep_save:', self.Nstep_save)
+        print('    Nstep_out:', self.Nstep_out)
+        print('    infile_pdb:', self.infile_pdb)
+        print('    outfile_out:', self.outfile_out)
+        print('    outfile_ene:', self.outfile_ene)
+        print('    outfile_dcd:', self.outfile_dcd)
+        print('    outfile_rst:', self.outfile_rst)
+        print('    temp:', self.temp)
+        print('    LD_temp:', self.LD_temp)
+        print('    LD_gamma:', self.LD_gamma)
+        print('    LD_dt:', self.LD_dt)
+
 
 ctrl = Control()
 #if len(sys.argv) == 2:
@@ -123,6 +143,7 @@ print('')
 #tomldata = toml.load(sys.argv[1])
 
 if tmyaml_input is not None:
+    ctrl.infile_pdb  = tmyaml_input['structure']
     ctrl.Nstep       = tmyaml_input['steps']
     ctrl.Nstep_save  = tmyaml_input['save_period']
     ctrl.Nstep_out   = tmyaml_input['output_period']
@@ -144,15 +165,17 @@ else:
     embeddings = torch.tensor([5, 2, 3, 4, 1, 4, 2, 1, 2, 2, 4, 3, 1, 4, 1, 3, 1, 4, 3, 2, 4, 3, 1, 4, 1, 2, 3, 1, 5])
     epochfile = 'epoch=295-val_loss=0.1475-test_loss=0.2365.ckpt'
 
-ctrl.box = 0.
+#ctrl.box = 0.
+
+ctrl.print()
 
 forcefield = app.ForceField('rna_cg2.xml')
+
+## Load topology and positions from the PDB
 topology = None
 positions = None
 
-seq = 'DGCUAUGAGGUCAUACAUCGUCAUAGCAD'
-cgpdb = app.PDBFile('T2HP_unfolded.pdb')
-
+cgpdb = app.PDBFile(ctrl.infile_pdb)
 topology = cgpdb.getTopology()
 positions = cgpdb.getPositions()
 #name_map = {'A': 'ADE', 'C': 'CYT', 'G': 'GUA', 'U': 'URA'}
@@ -171,10 +194,14 @@ for c in topology.chains():
 
 #topology.setPeriodicBoxVectors([[ctrl.box.value_in_unit(unit.nanometers),0,0], [0,ctrl.box.value_in_unit(unit.nanometers),0], [0,0,ctrl.box.value_in_unit(unit.nanometers)]])
 
+## Load force field
 ff = SISForceField()
 
 system = forcefield.createSystem(topology)
 
+################################################
+#             Construct forces
+################################################
 totalforcegroup = -1
 groupnames = []
 
@@ -291,6 +318,9 @@ class EnergyReporter(object):
         self._out.write("\n")
         self._out.flush()
 
+################################################
+#             Construct forces
+################################################
 #integrator = omm.LangevinIntegrator(ctrl.LD_temp, ctrl.LD_gamma, ctrl.LD_dt)
 integrator = omm.LangevinMiddleIntegrator(ctrl.LD_temp, ctrl.LD_gamma, ctrl.LD_dt)
 #platform = omm.Platform.getPlatformByName('CUDA')
