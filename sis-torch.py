@@ -75,9 +75,10 @@ parser_ctrl.add_argument('--tmyaml', type=str, help='TorchMD format YAML file')
 parser.add_argument('--ff', type=str, help='TOML format force-field file')
 parser.add_argument('--xml', type=str, default=xml_default, help='XML file for topology information')
 
-parser_device = parser.add_mutually_exclusive_group()
-parser_device.add_argument('--cpu', action='store_true', default=False)
-parser_device.add_argument('--cuda', action='store_true', default=False)
+parser.add_argument('--cuda', action='store_true', default=False)
+#parser_device = parser.add_mutually_exclusive_group()
+#parser_device.add_argument('--cpu', action='store_true', default=False)
+#parser_device.add_argument('--cuda', action='store_true', default=False)
 
 #parser_init = parser.add_mutually_exclusive_group(required=True)
 #parser_init.add_argument('-i','--inixyz', type=str, default=None, help='initial xyz file')
@@ -239,12 +240,10 @@ if not os.path.isfile(args.xml):
     sys.exit(2)
 ctrl.xml = args.xml
 
-if args.cpu:
-    ctrl.devie = 'CPU'
-elif args.cuda:
+if args.cuda:
     ctrl.device = 'CUDA'
 else:
-    ctrl.device = 'CPU'
+    ctrl.device = 'default'
 
 #tomldata = toml.load(sys.argv[1])
 
@@ -507,17 +506,18 @@ integrator = omm.LangevinMiddleIntegrator(ctrl.LD_temp, ctrl.LD_gamma, ctrl.LD_d
 platform = None
 properties = None
 
-if ctrl.device == 'CPU':
-    platform = omm.Platform.getPlatformByName('CPU')
-
-elif ctrl.device == 'CUDA':
+if ctrl.device == 'CUDA':
     platform = omm.Platform.getPlatformByName('CUDA')
     #properties = {'Precision': 'double'}
     properties = {'Precision': 'single'}
 
-else:
-    print("Error: unknown device.")
-    sys.exit(2)
+#if ctrl.device == 'CPU':
+#    platform = omm.Platform.getPlatformByName('CPU')
+#
+#
+#else:
+#    print("Error: unknown device.")
+#    sys.exit(2)
 
 #properties = {}
 #properties["DeviceIndex"] = "0"
