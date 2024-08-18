@@ -1,22 +1,37 @@
 from dataclasses import dataclass, field
 from typing import Dict
+from simtk.unit import Quantity, angstrom, kilocalorie_per_mole, radian
 
 @dataclass
 class SISForceField:
-    bond_k: float = 15.0
-    bond_r0: float = 6.13
+    # Switches
+    bond:   bool = True
+    angle:  bool = True
+    dihexp: bool = True
+    wca:    bool = True
+    bp:     bool = True
 
-    angle_k: float = 10.0
-    angle_a0: float = 2.618
+    # Bond
+    bond_k:  Quantity = 15.0 * kilocalorie_per_mole/(angstrom**2)
+    bond_r0: Quantity = 5.84 * angstrom
 
-    dih_exp_k: float = 1.4
-    dih_exp_w: float = 3.0
-    dih_exp_phi0: float = 0.267
+    # Angle
+    angle_k:  Quantity = 10.0 * kilocalorie_per_mole/(radian**2)
+    angle_a0: Quantity = 2.618 * radian
 
-    wca_sigma: float = 10.0
-    wca_epsilon: float = 2.0
+    # Dihedral (exponential)
+    dihexp_k:  Quantity = 1.4 * kilocalorie_per_mole
+    dihexp_w:  Quantity = 3.0 /(radian**2)
+    dihexp_p0: Quantity = 0.267 * radian
 
-    dS0 = -1.0
+    # WCA
+    wca_epsilon: Quantity = 2.0 * kilocalorie_per_mole
+    wca_sigma:   Quantity = 10.0 * angstrom
+    wca_exclusions = []
+    wca_exclusions: Dict[str, bool] = field(default_factory=lambda: {'1-2': True, '1-3': True})
+
+    # Base pair
+    dS0: float = -1.0
 
     GC_bond_k: float = 1.0
     GC_bond_r: float = 1.0
@@ -62,6 +77,105 @@ class SISForceField:
     GU_dihd_k2: float = 0.5
     GU_dihd_phi1: float = 1.8326
     GU_dihd_phi2: float = 1.1345
+
+    def __str__(self):
+        tab = '    '
+        s =  "Force field:\n"
+        s += tab + "Switches\n"
+        s += tab + tab + f"bond:   {self.bond}\n"
+        s += tab + tab + f"angle:  {self.angle}\n"
+        s += tab + tab + f"dihexp: {self.dihexp}\n"
+        s += tab + tab + f"wca:    {self.wca}\n"
+        if self.bond:
+            s += tab + "Bond:\n"
+            s += tab + tab + f"k:  {self.bond_k}\n"
+            s += tab + tab + f"r0: {self.bond_r0}\n"
+        if self.angle:
+            s += tab + "Angle:\n"
+            s += tab + tab + f"k:  {self.angle_k}\n"
+            s += tab + tab + f"a0: {self.angle_a0}\n"
+        if self.dihexp:
+            s += tab + "Dihedral(exponential)\n"
+            s += tab + tab + f"k:  {self.dihexp_k}\n"
+            s += tab + tab + f"w:  {self.dihexp_w}\n"
+            s += tab + tab + f"p0: {self.dihexp_p0}\n"
+        if self.wca:
+            s += tab + "WCA:\n"
+            s += tab + tab + f"epsilon: {self.wca_epsilon}\n"
+            s += tab + tab + f"sigma:   {self.wca_sigma}\n"
+            s += tab + tab + f"exclusions: {self.wca_exclusions}\n"
+        if self.bp:
+            s += tab + "Basepair:\n"
+            s += tab + tab + f"dS0: {self.dS0}\n"
+            s += tab + tab + f"GC_bond_k:  {self.GC_bond_k}\n"
+            s += tab + tab + f"GC_bond_r:  {self.GC_bond_r}\n"
+            s += tab + tab + f"GC_angl_k1: {self.GC_angl_k1}\n"
+            s += tab + tab + f"GC_angl_k2: {self.GC_angl_k2}\n"
+            s += tab + tab + f"GC_angl_k3: {self.GC_angl_k3}\n"
+            s += tab + tab + f"GC_angl_k4: {self.GC_angl_k4}\n"
+            s += tab + tab + f"GC_angl_theta1: {self.GC_angl_theta1}\n"
+            s += tab + tab + f"GC_angl_theta2: {self.GC_angl_theta2}\n"
+            s += tab + tab + f"GC_angl_theta3: {self.GC_angl_theta3}\n"
+            s += tab + tab + f"GC_angl_theta4: {self.GC_angl_theta4}\n"
+            s += tab + tab + f"GC_dihd_k1:     {self.GC_dihd_k1}\n"
+            s += tab + tab + f"GC_dihd_k2:     {self.GC_dihd_k2}\n"
+            s += tab + tab + f"GC_dihd_phi1:   {self.GC_dihd_phi1}\n"
+            s += tab + tab + f"GC_dihd_phi2:   {self.GC_dihd_phi2}\n"
+            s += tab + tab + f"AU_bond_k:  {self.AU_bond_k}\n"
+            s += tab + tab + f"AU_bond_r:  {self.AU_bond_r}\n"
+            s += tab + tab + f"AU_angl_k1: {self.AU_angl_k1}\n"
+            s += tab + tab + f"AU_angl_k2: {self.AU_angl_k2}\n"
+            s += tab + tab + f"AU_angl_k3: {self.AU_angl_k3}\n"
+            s += tab + tab + f"AU_angl_k4: {self.AU_angl_k4}\n"
+            s += tab + tab + f"AU_angl_theta1: {self.AU_angl_theta1}\n"
+            s += tab + tab + f"AU_angl_theta2: {self.AU_angl_theta2}\n"
+            s += tab + tab + f"AU_angl_theta3: {self.AU_angl_theta3}\n"
+            s += tab + tab + f"AU_angl_theta4: {self.AU_angl_theta4}\n"
+            s += tab + tab + f"AU_dihd_k1:     {self.AU_dihd_k1}\n"
+            s += tab + tab + f"AU_dihd_k2:     {self.AU_dihd_k2}\n"
+            s += tab + tab + f"AU_dihd_phi1:   {self.AU_dihd_phi1}\n"
+            s += tab + tab + f"AU_dihd_phi2:   {self.AU_dihd_phi2}\n"
+            s += tab + tab + f"GU_bond_k:  {self.GU_bond_k}\n"
+            s += tab + tab + f"GU_bond_r:  {self.GU_bond_r}\n"
+            s += tab + tab + f"GU_angl_k1: {self.GU_angl_k1}\n"
+            s += tab + tab + f"GU_angl_k2: {self.GU_angl_k2}\n"
+            s += tab + tab + f"GU_angl_k3: {self.GU_angl_k3}\n"
+            s += tab + tab + f"GU_angl_k4: {self.GU_angl_k4}\n"
+            s += tab + tab + f"GU_angl_theta1: {self.GU_angl_theta1}\n"
+            s += tab + tab + f"GU_angl_theta2: {self.GU_angl_theta2}\n"
+            s += tab + tab + f"GU_angl_theta3: {self.GU_angl_theta3}\n"
+            s += tab + tab + f"GU_angl_theta4: {self.GU_angl_theta4}\n"
+            s += tab + tab + f"GU_dihd_k1:     {self.GU_dihd_k1}\n"
+            s += tab + tab + f"GU_dihd_k2:     {self.GU_dihd_k2}\n"
+            s += tab + tab + f"GU_dihd_phi1:   {self.GU_dihd_phi1}\n"
+            s += tab + tab + f"GU_dihd_phi2:   {self.GU_dihd_phi2}\n"
+        return s
+
+    def read_toml(self, tomlfile):
+        import toml
+        tm = toml.load(tomlfile)
+
+        self.bond   = False
+        self.angle  = False
+        self.dihexp = False
+        self.wca    = False
+        self.bp     = False
+
+        if 'bond' in tm['potential']:
+            self.bond = True
+            self.bond_k  = tm['potential']['bond']['k'] * kilocalorie_per_mole/(angstrom**2)
+            self.bond_r0 = tm['potential']['bond']['r0'] * angstrom
+
+        if 'dihedral_exp' in tm['potential']:
+            self.dihexp = True
+            self.dihexp_k  = tm['potential']['dihedral_exp']['k'] * kilocalorie_per_mole
+            self.dihexp_w  = tm['potential']['dihedral_exp']['w'] / (radian**2)
+            self.dihexp_p0 = tm['potential']['dihedral_exp']['phi0'] * radian
+
+        if 'wca' in tm['potential']:
+            self.wca = True
+            self.wca_epsilon = tm['potential']['wca']['epsilon'] * kilocalorie_per_mole
+            self.wca_sigma   = tm['potential']['wca']['sigma'] * angstrom
 
 @dataclass
 class NearestNeighbor:
@@ -130,6 +244,4 @@ class NearestNeighbor:
         'GUonAU': 12.78,
         'GUonGU': 22.47,
     })
-
-    
 
