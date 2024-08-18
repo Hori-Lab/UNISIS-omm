@@ -75,6 +75,10 @@ parser_ctrl.add_argument('--tmyaml', type=str, help='TorchMD format YAML file')
 parser.add_argument('--ff', type=str, help='TOML format force-field file')
 parser.add_argument('--xml', type=str, default=xml_default, help='XML file for topology information')
 
+parser_device = parser.add_mutually_exclusive_group()
+parser_device.add_argument('--cpu', action='store_true', default=False)
+parser_device.add_argument('--cuda', action='store_true', default=False)
+
 #parser_init = parser.add_mutually_exclusive_group(required=True)
 #parser_init.add_argument('-i','--inixyz', type=str, default=None, help='initial xyz file')
 #parser_init.add_argument('-N','--nbead', type=int, default=0, help='number of beads')
@@ -174,6 +178,7 @@ if args.tmyaml is not None:
 
 @dataclass
 class Control:    ### structure to group all simulation parameter
+    device: str = ''
     xml: str = ''
     restart: bool = False
     restart_file: str = None
@@ -206,6 +211,7 @@ class Control:    ### structure to group all simulation parameter
 
     def __str__(self):
         return (f"Control:\n"
+              + f"    device: {self.device}\n"
               + f"    xml: {self.xml}\n"
               + f"    restart: {self.restart}\n"
               + f"    restart_file: {self.restart_file}\n"
@@ -232,6 +238,13 @@ if not os.path.isfile(args.xml):
     print("Error: could not find topology XML file, " + args.xml)
     sys.exit(2)
 ctrl.xml = args.xml
+
+if args.cpu:
+    ctrl.devie = 'CPU'
+elif args.cuda:
+    ctrl.device = 'CUDA'
+else:
+    ctrl.device = 'CPU'
 
 #tomldata = toml.load(sys.argv[1])
 
@@ -376,21 +389,35 @@ if use_nnp:
     from openmmtorch import TorchForce
     from torchmdnet.models.model import load_model
 
+    #torch.set_default_dtype(torch.float32)
+    #torch.set_default_dtype(torch.float64)
+
+    #model = load_model(ctrl.NNP_model, derivative=False)
+    #torch.jit.script(model).save('model.pt')
+
     class ForceModule(torch.nn.Module):
         def __init__(self, epochfile, embeddings):
             super(ForceModule, self).__init__()
 
+            #self.model = torch.jit.load('model.pt')
             #self.model = torch.jit.script(load_model(epochfile, derivative=True))
             self.model = torch.jit.script(load_model(epochfile, derivative=False))
-            # derivative=False : Let OpenMM calculate force by back-propagation
+            '''derivative=False : Let OpenMM calculate force by back-propagation.'''
 
             self.model.eval()
-            self.embeddings = embeddings
-            self.batch = torch.arange(1).repeat_interleave(embeddings.size(0))
+            # Worked
+            if ctrl.device == 'CUDA':
+                self.embeddings = embeddings.cuda()
+            else:
+                self.embeddings = embeddings
+            #self.batch = torch.arange(1).repeat_interleave(embeddings.size(0)).cuda()
+            #self.embeddings = embeddings
+            #self.batch = torch.arange(1).repeat_interleave(embeddings.size(0))
+            self.batch = None
             self.box = None
 
         def forward(self, positions):
-            positions_A = positions*10
+            positions_A = positions*10  # nm -> angstrom
             energy, _ = self.model(self.embeddings, positions_A, self.batch, self.box)
             #energy, force = self.model(self.embeddings, positions_A, self.batch, self.box)
             #print('energy=', energy)
@@ -398,7 +425,7 @@ if use_nnp:
             #return energy*4.814, force*41.84
             return energy*4.814
 
-    embeddings = torch.tensor(ctrl.NNP_emblist)
+    embeddings = torch.tensor(ctrl.NNP_emblist, dtype=torch.long)
 
     module = torch.jit.script(ForceModule(ctrl.NNP_model, embeddings))
     torch_force = TorchForce(module)
@@ -476,12 +503,24 @@ class EnergyReporter(object):
 ################################################
 #integrator = omm.LangevinIntegrator(ctrl.LD_temp, ctrl.LD_gamma, ctrl.LD_dt)
 integrator = omm.LangevinMiddleIntegrator(ctrl.LD_temp, ctrl.LD_gamma, ctrl.LD_dt)
-#platform = omm.Platform.getPlatformByName('CUDA')
-#platform = omm.Platform.getPlatformByName('CPU')
-#properties = {'CudaPrecision': 'mixed'}
 
 platform = None
 properties = None
+
+if ctrl.device == 'CPU':
+    platform = omm.Platform.getPlatformByName('CPU')
+
+elif ctrl.device == 'CUDA':
+    platform = omm.Platform.getPlatformByName('CUDA')
+    #properties = {'Precision': 'double'}
+    properties = {'Precision': 'single'}
+
+else:
+    print("Error: unknown device.")
+    sys.exit(2)
+
+#properties = {}
+#properties["DeviceIndex"] = "0"
 #if 'GPU' in tomldata:
 #    if 'platform' in tomldata['GPU']:
 #        platform = omm.Platform.getPlatformByName(tomldata.GPU.platform)
