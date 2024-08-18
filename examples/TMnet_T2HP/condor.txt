@@ -1,0 +1,20 @@
+output   = out
+error    = err
+log      = log
+
+universe = vanilla
+
+getenv = True
+environment = "CUDA_VISIBLE_DEVICES=0"
+initialdir = /users/paznh/sismm/examples/TMnet_T2HP
+executable = /users/paznh/miniconda3/envs/torchmd/bin/python
+arguments  = "/users/paznh/ML/torchmd-sisrna/torchmd/run.py --conf simulate.yaml"
+arguments  = "../../sis-torch.py --tmyaml simulate.yaml --ff htv23_nnp_dihexp.ff --cuda"
+
+request_memory = 10 GB
+
+Request_CPUs = 1
+Request_GPUs = 1
+Rank = GPU_Speed
+
+queue
