@@ -4,7 +4,7 @@ forceterms:
 - repulsionrna
 - dihedrals_rna
 exclusions: ('bonds','angles')
-timestep: 50
+timestep: 25
 langevin_gamma: 0.5
 langevin_temperature: 300
 temperature: 300

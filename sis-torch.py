@@ -31,10 +31,11 @@ import openmm as omm
 
 from sis_params import SISForceField
 
-import pprint
 
-###################################################################
-# Utility functions
+################################################
+#         Utility functions
+################################################
+
 def prev_and_next(iterable):
     prevs, items, nexts = it.tee(iterable, 3)
     prevs = it.chain([None], prevs)
@@ -57,13 +58,17 @@ def get_atom(res):
     for atom in res.atoms():
         return atom
 
-###################################################################
-# Constants
+################################################
+#         Constants
+################################################
 #KELVIN_TO_KT = unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB / unit.kilocalorie_per_mole
 #print KELVIN_TO_KT
 xml_default = os.path.dirname(os.path.realpath(__file__)) + '/rna_cg2.xml'
 
-###################################################################
+
+################################################
+#          Parser
+################################################
 
 parser = argparse.ArgumentParser(description='OpenMM script for the SIS-RNA model',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -130,13 +135,9 @@ parser.add_argument('--cuda', action='store_true', default=False)
 
 args = parser.parse_args()
 
-###################################################################
-#if len(sys.argv) not in (2, 3):
-#    print('SCRIPT [yaml input] [[ff toml file]]')
-#    sys.exit(2)
-
-###################################################################
-# Output the program and execution information
+################################################
+#   Output the program and execution information
+################################################
 from datetime import datetime
 print('Program: OpenMM script for the SIS RNA model')
 print('    File: ' + os.path.realpath(__file__))
@@ -152,7 +153,7 @@ print('')
 
 print('Execution:')
 print('    Time: ' + str(datetime.now()) + ' (UTC: ' + str(datetime.utcnow()) + ')')
-print('    Machine: ' + os.uname().nodename)
+print('    Host: ' + os.uname().nodename)
 print('    OS: ' + os.uname().version)
 print('    Python: ' + sys.version)
 print('    OpenMM version: ' + omm.version.full_version)
@@ -165,18 +166,9 @@ print('')
 print('')
 
 
-###################################################################
-
-tmyaml_input = None
-if args.tmyaml is not None:
-    with open(args.tmyaml) as stream:
-        try:
-            tmyaml_input = yaml.safe_load(stream)
-            #print(tmyml_input)
-        except yaml.YAMLError as err:
-            print (err)
-            raise
-
+################################################
+#          Control object
+################################################
 @dataclass
 class Control:    ### structure to group all simulation parameter
     device: str = ''
@@ -200,6 +192,7 @@ class Control:    ### structure to group all simulation parameter
     LD_gamma: Quantity    = 0.5 / unit.picosecond
     LD_dt: Quantity       = 50 * unit.femtoseconds
 
+    use_NNP: bool = False
     NNP_model: str = ''
     NNP_emblist: List = field(default_factory=lambda: 
                         [5,2,3,4,1,4,2,1,2,2,4,3,1,4,1,3,1,4,3,2,4,3,1,4,1,2,3,1,5])
@@ -229,6 +222,7 @@ class Control:    ### structure to group all simulation parameter
               + f"    LD_temp: {self.LD_temp}\n"
               + f"    LD_gamma: {self.LD_gamma}\n"
               + f"    LD_dt: {self.LD_dt}\n"
+              + f"    use_NNP: {self.use_NNP}\n"
               + f"    NNP_model: {self.NNP_model}\n"
               + f"    NNP_emblist: {self.NNP_emblist}\n"
                 )
@@ -247,6 +241,20 @@ else:
 
 #tomldata = toml.load(sys.argv[1])
 
+################################################
+#          Load TorchMD input yaml
+################################################
+
+tmyaml_input = None
+if args.tmyaml is not None:
+    with open(args.tmyaml) as stream:
+        try:
+            tmyaml_input = yaml.safe_load(stream)
+            #print(tmyml_input)
+        except yaml.YAMLError as err:
+            print (err)
+            raise
+
 if tmyaml_input is not None:
     ctrl.infile_pdb   = tmyaml_input['structure']
     ctrl.Nstep        = tmyaml_input['steps']
@@ -262,11 +270,14 @@ if tmyaml_input is not None:
     ctrl.LD_dt        = tmyaml_input['timestep'] * unit.femtoseconds
     ctrl.NNP_model    = tmyaml_input['external']['file']
     ctrl.NNP_emblist  = tmyaml_input['external']['embeddings']
+    ctrl.use_NNP      = True
 
 print(ctrl)
 
 
-## Load topology and positions from the PDB
+################################################
+#   Load topology and positions from the PDB
+################################################
 topology = None
 positions = None
 
@@ -290,7 +301,8 @@ for c in topology.chains():
 #topology.setPeriodicBoxVectors([[ctrl.box.value_in_unit(unit.nanometers),0,0], [0,ctrl.box.value_in_unit(unit.nanometers),0], [0,0,ctrl.box.value_in_unit(unit.nanometers)]])
 
 ################################################
-## Load force field
+#             Load force field
+################################################
 ff = SISForceField()
 
 if args.ff is not None:
@@ -305,8 +317,6 @@ system = app.ForceField(ctrl.xml).createSystem(topology)
 
 totalforcegroup = -1
 groupnames = []
-
-print("Setting up force groups")
 
 ########## Bond
 if ff.bond:
@@ -381,9 +391,7 @@ if ff.wca:
     system.addForce(WCAforce)
 
 ########## NNP
-use_nnp = True
-
-if use_nnp:
+if ctrl.use_NNP:
     import torch
     from openmmtorch import TorchForce
     from torchmdnet.models.model import load_model
@@ -436,12 +444,10 @@ if use_nnp:
 
 print('')
 
+################################################
+#             Simulation set up
+################################################
 
-########## Simulation ############
-#         1         2         3
-#1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
-#(1)nframe   (2)T   (3)Ekin       (4)Epot       (5)Ebond      (6)Eangl      (7)Edih       (8)Ebp        (9)Eexv       (10)Eele     
-#           0 300.00   22.3937     -0.736104      0.816908       3.14794      -6.14850       0.00000       0.00000       1.44755    
 class EnergyReporter(object):
     def __init__ (self, file, reportInterval):
         self._out = open(file, 'w')
@@ -465,7 +471,7 @@ class EnergyReporter(object):
             icol += 1
             self._out.write(' %13s' % f'{icol}:Ewca')
 
-        if use_nnp:
+        if ctrl.use_NNP:
             icol += 1
             self._out.write(' %13s' % f'{icol}:Enn')
 
@@ -482,7 +488,6 @@ class EnergyReporter(object):
 
     def report(self, simulation, state):
         energy = []
-        # nframe
         self._out.write(f"{simulation.currentStep:12d}")
         self._out.write(f" {ctrl.LD_temp/unit.kelvin:6.2f}")
         state = simulation.context.getState(getEnergy=True)
@@ -497,9 +502,6 @@ class EnergyReporter(object):
         self._out.write("\n")
         self._out.flush()
 
-################################################
-#             Construct forces
-################################################
 #integrator = omm.LangevinIntegrator(ctrl.LD_temp, ctrl.LD_gamma, ctrl.LD_dt)
 integrator = omm.LangevinMiddleIntegrator(ctrl.LD_temp, ctrl.LD_gamma, ctrl.LD_dt)
 
@@ -532,8 +534,8 @@ if ctrl.device == 'CUDA':
 #        print("DeviceIndex ", tomldata.GPU.CUDAdevice)
 
 #simulation = app.Simulation(topology, system, integrator, platform)
-simulation = app.Simulation(topology, system, integrator, platform, properties)
 #simulation = app.Simulation(topology, system, integrator)
+simulation = app.Simulation(topology, system, integrator, platform, properties)
 
 if ctrl.restart == False:
 
