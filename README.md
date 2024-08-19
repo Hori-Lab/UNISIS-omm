@@ -41,7 +41,7 @@ Note that, in the PDB file, residue names have to be `RA`, `RU`, `RC`, `RG`, and
 For the input YAML file, you can use almost the same input file as for the TorchMD input. You just have to add the following line for the initial structure PDB (not DCD).
 
 ```
-structure: ./T2HP_unfolded.pd
+structure: ./T2HP_unfolded.pdb
 ```
 
 Relevant lines for the OpenMM script are:
