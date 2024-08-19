@@ -5,19 +5,24 @@ from simtk.unit import Quantity, angstrom, kilocalorie_per_mole, radian
 @dataclass
 class SISForceField:
     # Switches
-    bond:   bool = True
-    angle:  bool = True
-    dihexp: bool = True
-    wca:    bool = True
-    bp:     bool = True
+    bond:       bool = True
+    angle:      bool = False
+    angle_ReB:  bool = True
+    dihexp:     bool = True
+    wca:        bool = True
+    bp:         bool = True
 
     # Bond
     bond_k:  Quantity = field(default_factory=lambda: Quantity(15.0, kilocalorie_per_mole/(angstrom**2)))
-    bond_r0: Quantity = field(default_factory=lambda: Quantity(5.84, angstrom))
+    bond_r0: Quantity = field(default_factory=lambda: Quantity(6.13, angstrom))
 
     # Angle
-    angle_k:  Quantity = field(default_factory=lambda: Quantity(10.0, kilocalorie_per_mole/(radian**2)))
-    angle_a0: Quantity = field(default_factory=lambda: Quantity(2.618, radian))
+    angle_k:  Quantity = field(default_factory=lambda: Quantity(5.0, kilocalorie_per_mole/(radian**2)))
+    angle_a0: Quantity = field(default_factory=lambda: Quantity(2.6358, radian))
+
+    # Angle (Restricted Bending)
+    angle_ReB_k:  Quantity = field(default_factory=lambda: Quantity(5.0, kilocalorie_per_mole))
+    angle_ReB_a0: Quantity = field(default_factory=lambda: Quantity(2.6358, radian))
 
     # Dihedral (exponential)
     dihexp_k:  Quantity = field(default_factory=lambda: Quantity(1.4, kilocalorie_per_mole))
@@ -27,7 +32,6 @@ class SISForceField:
     # WCA
     wca_epsilon: Quantity = field(default_factory=lambda: Quantity(2.0, kilocalorie_per_mole))
     wca_sigma:   Quantity = field(default_factory=lambda: Quantity(10.0, angstrom))
-    wca_exclusions = []
     wca_exclusions: Dict[str, bool] = field(default_factory=lambda: {'1-2': True, '1-3': True})
 
     # Base pair
@@ -94,6 +98,10 @@ class SISForceField:
             s += tab + "Angle:\n"
             s += tab + tab + f"k:  {self.angle_k}\n"
             s += tab + tab + f"a0: {self.angle_a0}\n"
+        if self.angle_ReB:
+            s += tab + "Angle_ReB:\n"
+            s += tab + tab + f"k:  {self.angle_ReB_k}\n"
+            s += tab + tab + f"a0: {self.angle_ReB_a0}\n"
         if self.dihexp:
             s += tab + "Dihedral(exponential)\n"
             s += tab + tab + f"k:  {self.dihexp_k}\n"
@@ -165,6 +173,16 @@ class SISForceField:
             self.bond = True
             self.bond_k  = tm['potential']['bond']['k'] * kilocalorie_per_mole/(angstrom**2)
             self.bond_r0 = tm['potential']['bond']['r0'] * angstrom
+
+        if 'angle' in tm['potential']:
+            self.angle = True
+            self.angle_k   = tm['potential']['angle']['k'] * kilocalorie_per_mole/(radian**2)
+            self.angle_a0  = tm['potential']['angle']['a0'] * radian
+
+        if 'angle_ReB' in tm['potential']:
+            self.angle_ReB = True
+            self.angle_k   = tm['potential']['angle_ReB']['k'] * kilocalorie_per_mole
+            self.angle_a0  = tm['potential']['angle_ReB']['a0'] radian
 
         if 'dihedral_exp' in tm['potential']:
             self.dihexp = True

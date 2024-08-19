@@ -15,22 +15,30 @@ import os
 import sys
 import time
 import re
-import toml
-import yaml
 import itertools as it
 import argparse
+from datetime import datetime
 from dataclasses import dataclass, field
 from typing import List
 from math import sqrt #, acos, atan2
+
+from numpy import diag
 from simtk import unit
 from simtk.unit import Quantity
-from numpy import diag
-
 from openmm import app
 import openmm as omm
 
 from sis_params import SISForceField
 
+"""
+* Following modules will be imported later if needed.
+ import subprocess
+ import yaml
+ import toml
+ import torch
+ from openmmtorch import TorchForce
+ from torchmdnet.models.model import load_model
+"""
 
 ################################################
 #         Utility functions
@@ -138,7 +146,6 @@ args = parser.parse_args()
 ################################################
 #   Output the program and execution information
 ################################################
-from datetime import datetime
 print('Program: OpenMM script for the SIS RNA model')
 print('    File: ' + os.path.realpath(__file__))
 # Output Git hash
@@ -177,11 +184,11 @@ class Control:    ### structure to group all simulation parameter
     restart_file: str = None
     minimization: bool = False
 
-    Nstep: int        = 1000000
-    Nstep_save: int   = 1000
-    Nstep_log:  int   = 1000
+    Nstep: int        = 10
+    Nstep_save: int   = 1
+    Nstep_log:  int   = 1
 
-    infile_pdb: str   = './T2HP_unfolded.pdb'
+    infile_pdb: str   = None
     outfile_log: str  = './md.log'
     outfile_out: str  = './md.out'
     outfile_dcd: str  = './md.dcd'
@@ -191,6 +198,14 @@ class Control:    ### structure to group all simulation parameter
     LD_temp: Quantity  = field(default_factory=lambda: Quantity(300.0, unit.kelvin))
     LD_gamma: Quantity = field(default_factory=lambda: Quantity(0.5, unit.picosecond**(-1)))
     LD_dt: Quantity    = field(default_factory=lambda: Quantity(50, unit.femtoseconds))
+
+    ele: bool = False
+    ele_ionic_strength: float = 0.15
+    ele_cutoff_type: int = 1
+    ele_cutoff_factor: float = 50.0
+    ele_no_charge: List = field(default_factory=lambda: [])
+    ele_length_per_charge: float = 4.38178046
+    ele_exclusions: Dict = field(default_factory=lambda: {'1-2': True, '1-3': False})
 
     use_NNP: bool = False
     NNP_model: str = ''
@@ -222,6 +237,13 @@ class Control:    ### structure to group all simulation parameter
               + f"    LD_temp: {self.LD_temp}\n"
               + f"    LD_gamma: {self.LD_gamma}\n"
               + f"    LD_dt: {self.LD_dt}\n"
+              + f"    ele: {self.ele}\n"
+              + f"    ele_ionic_strength: {self.ele_ionic_strength}\n"
+              + f"    ele_cutoff_type: {self.ele_cutoff_type}\n"
+              + f"    ele_cutoff_factor: {self.ele_cutoff_factor}\n"
+              + f"    ele_no_charge: {self.ele_no_charge}\n"
+              + f"    ele_length_per_charge: {self.ele_length_per_charge}\n"
+              + f"    ele_exclusions: {self.ele_exclusions}\n"
               + f"    use_NNP: {self.use_NNP}\n"
               + f"    NNP_model: {self.NNP_model}\n"
               + f"    NNP_emblist: {self.NNP_emblist}\n"
@@ -239,7 +261,49 @@ if args.cuda:
 else:
     ctrl.device = 'default'
 
+################################################
+#          Load input TOML
+################################################
 #tomldata = toml.load(sys.argv[1])
+toml_input = None
+if args.toml is not None:
+    import toml
+    with open(args.toml) as stream:
+        try:
+            toml_input = toml.load(stream)
+        except:
+            print ("Error: could not read the input TOML file.")
+            raise
+
+if toml_input is not None:
+    ctrl.infile_pdb   = toml_input['Files']['In']['pdb_ini']
+    ctrl.Nstep        = toml_input['MD']['nstep']
+    ctrl.Nstep_save   = toml_input['MD']['nstep_save']
+    ctrl.Nstep_out    = toml_input['Progress']['step']
+    ctrl.outfile_dcd  = toml_input['Files']['Out']['prefix'] + '.dcd'
+    ctrl.outfile_log  = toml_input['Files']['Out']['prefix'] + '.log'
+    ctrl.outfile_out  = toml_input['Files']['Out']['prefix'] + '.out'
+    ctrl.outfile_rst  = toml_input['Files']['Out']['prefix'] + '.rst'
+    ctrl.temp         = toml_input['Condition']['tempK'] * unit.kelvin
+    ctrl.LD_temp      = toml_input['Condition']['tempK'] * unit.kelvin
+    ctrl.LD_gamma     = toml_input['MD']['friction'] / unit.picosecond
+    ctrl.LD_dt        = toml_input['MD']['dt'] * unit.femtoseconds
+    ctrl.ele          = False
+
+    if 'Electrostatic' in toml_input.keys():
+        ctrl.ele = True
+        ctrl.ele_ionicstrength = toml_input['Electrostatic']['ionic_strength']
+        ctrl.ele_cutoff_type   = toml_input['Electrostatic']['cutoff_type']
+        ctrl.ele_cutoff_factor = toml_input['Electrostatic']['cutoff']
+        ctrl.ele_no_charge     = toml_input['Electrostatic']['no_charge']
+        ctrl.ele_length_per_charge = toml_input['Electrostatic']['length_per_charge']
+        if toml_input['Electrostatic']['exclude_covalent_bond_pairs']:
+            ctrl.ele_excludions['1-2'] = True
+
+    if 'NNP' in toml_input.keys():
+        ctrl.use_NNP      = True
+        ctrl.NNP_model    = toml_input['Files']['In']['TMnet_ckpt']
+        #ctrl.NNP_emblist  = toml_input['external']['embeddings']
 
 ################################################
 #          Load TorchMD input yaml
@@ -247,6 +311,7 @@ else:
 
 tmyaml_input = None
 if args.tmyaml is not None:
+    import yaml
     with open(args.tmyaml) as stream:
         try:
             tmyaml_input = yaml.safe_load(stream)
@@ -331,6 +396,50 @@ if ff.bond:
     groupnames.append("Ubond")
     system.addForce(bondforce)
 
+########## Angle
+if ff.angle:
+    angleforce = omm.HarmonicAngleForce()
+
+    for chain in topology.chains():
+        for prev, item, nxt in prev_and_next(chain.residues()):
+            if prev == None or nxt == None:
+                continue
+
+            angleforce.addAngle(prev.index, item.index, nxt.index, ff.angle_a0, ff.angle_k)
+
+    angleforce.setUsesPeriodicBoundaryConditions(False)
+    totalforcegroup += 1
+    angleforce.setForceGroup(totalforcegroup)
+    print(f"    {totalforcegroup:2d}:    Angle")
+    groupnames.append("Uangl")
+    system.addForce(angleforce)
+
+########## Restricted Bending (ReB)
+if ff.angle_ReB:
+    ReB_energy_function = '0.5 * ReB_k * (cos(theta) - cos_ReB_a0)^2 / (sin(theta)^2)'
+
+    ReBforce = omm.CustomAngleForce(ReB_energy_function)
+    ReBforce.addGlobalParameter("ReB_k",      ff.angle_k)
+    ReBforce.addGlobalParameter("cos_ReB_a0", ff.angle_a0)
+    #ReBforce.addPerAngleParameter("ReB_k")
+    #ReBforce.addPerAngleParameter("cos_ReB_a0")
+
+    for chain in topology.chains():
+        for prev, item, nxt in prev_and_next(chain.residues()):
+            if prev == None or nxt == None:
+                continue
+
+            #ReBforce.addAngle(prev.index, item.index, nxt.index, [ReB_k, cos_ReB_a0])
+            ReBforce.addAngle(prev.index, item.index, nxt.index)
+
+    ReBforce.setUsesPeriodicBoundaryConditions(False)
+    totalforcegroup += 1
+    ReBforce.setForceGroup(totalforcegroup)
+    print("Force group ReB: ", totalforcegroup)
+    print(f"    {totalforcegroup:2d}:    Angle ReB")
+    groupnames.append("Uangl")
+    system.addForce(ReBforce)
+
 ########## Dihedral (exponential)
 if ff.dihexp:
     dihedral_energy_function = '-dihexp_k * exp(-0.5 * dihexp_w * (theta - dihexp_p0)^2)'
@@ -339,9 +448,9 @@ if ff.dihexp:
     dihedralforce.addGlobalParameter('dihexp_k',  ff.dihexp_k)
     dihedralforce.addGlobalParameter('dihexp_w',  ff.dihexp_w)
     dihedralforce.addGlobalParameter('dihexp_p0', ff.dihexp_p0)
-    #dihedralforce.addPerTorsionParameter("dihexp_k");
-    #dihedralforce.addPerTorsionParameter("dihexp_w");
-    #dihedralforce.addPerTorsionParameter("dihexp_p0");
+    #dihedralforce.addPerTorsionParameter("dihexp_k")
+    #dihedralforce.addPerTorsionParameter("dihexp_w")
+    #dihedralforce.addPerTorsionParameter("dihexp_p0")
 
     for chain in topology.chains():
         for prev, item, nxt, aft in prev_and_next_and_after(chain.residues()):
@@ -389,6 +498,60 @@ if ff.wca:
     groupnames.append("Uwca")
     WCAforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffNonPeriodic)
     system.addForce(WCAforce)
+
+########## Debye-Huckel
+ionic_strength
+cutoff_type
+cutoff
+no_charge
+length_per_charge
+exclude_covalent_bond_pairs
+
+if simu.Kconc >= 0.:
+    T_unitless = simu.temp * unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB / unit.kilocalorie_per_mole
+    print("Electrostatic parameters:")
+    print("    [K] ", simu.Kconc, " mM")
+    simu.epsilon = 296.0736276 - 619.2813716 * T_unitless + 531.2826741 * T_unitless**2 - 180.0369914 * T_unitless**3;
+    print("    Dielectric constant ", simu.epsilon)
+    #simu.l_Bjerrum = 1./(simu.epsilon * unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB * simu.temp)
+    simu.l_Bjerrum = 332.0637*unit.angstroms / simu.epsilon
+    print("    Bjerrum length  ", simu.l_Bjerrum / T_unitless)
+    simu.Q = simu.b * T_unitless * unit.elementary_charge**2 / simu.l_Bjerrum
+    print("    Phosphate charge   ", -simu.Q)
+    simu.kappa = unit.sqrt (4*3.14159 * simu.l_Bjerrum * 2*simu.Kconc*6.022e-7 / (T_unitless * unit.angstrom**3))
+    print("    kappa   ", simu.kappa)
+    print("    Debye length ", 1.0/simu.kappa)
+    print("")
+
+if simu.Kconc >= 0.:
+    l_Bjerrum = 
+    Q = 
+    kappa = 
+    DHforce = omm.CustomNonbondedForce("scale*exp(-kappa*r)/r")
+    DHforce.addGlobalParameter("scale", simu.l_Bjerrum * simu.Q**2 * unit.kilocalorie_per_mole / unit.elementary_charge**2)
+    DHforce.addGlobalParameter("kappa", simu.kappa)
+
+    for atom in topology.atoms():
+        DHforce.addParticle([])
+
+    if ff.ele_exclusions['1-2']:
+        for bond in topology.bonds():
+            DHforce.addExclusion(bond[0].index, bond[1].index)
+
+    if ff.ele_exclusions['1-3']:
+        for chain in topology.chains():
+            for prev, item, nxt in prev_and_next(chain.residues()):
+                if prev == None or nxt == None:
+                continue
+                DHforce.addExclusion(atm_index(prev), atm_index(nxt))
+
+    DHforce.setCutoffDistance(simu.cutoff)
+    totalforcegroup += 1
+    DHforce.setForceGroup(totalforcegroup)
+    print("Force group Debye-Huckel: ", totalforcegroup)
+    groupnames.append("Uele")
+    DHforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffNonPeriodic)
+    system.addForce(DHforce)
 
 ########## NNP
 if ctrl.use_NNP:
