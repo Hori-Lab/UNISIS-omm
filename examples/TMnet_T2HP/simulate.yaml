@@ -1,27 +1,27 @@
-forcefield: prior_force_field.yaml
-forceterms:
-- bonds
-- repulsionrna
-- dihedrals_rna
-exclusions: ('bonds','angles')
+forcefield: prior_force_field.yaml        # ignored
+forceterms:                               # ignored
+- bonds                                   # ignored
+- repulsionrna                            # ignored
+- dihedrals_rna                           # ignored
+exclusions: ('bonds','angles')            # ignored
 timestep: 25
 langevin_gamma: 0.5
 langevin_temperature: 300
 temperature: 300
-log_dir: ./
+log_dir: ./                               # ignored
 output: md
 output_period: 1000
 save_period: 1000
-precision: double
-replicas: 32
-rfa: false
-seed: 10001
+precision: double                         # ignored
+replicas: 32                              # ignored
+rfa: false                                # ignored
+seed: 10001                               # ignored
 steps: 5000000
-topology: ''
-coordinates: ''
+topology: ''                              # ignored
+coordinates: ''                           # ignored
 structure: ./T2HP_unfolded.pdb
-device: 'cuda:0'
+device: 'cuda:0'                          # ignored
 external:
-  module: torchmdnet.calculators
+  module: torchmdnet.calculators          # ignored
   embeddings: [5, 2, 3, 4, 1, 4, 2, 1, 2, 2, 4, 3, 1, 4, 1, 3, 1, 4, 3, 2, 4, 3, 1, 4, 1, 2, 3, 1, 5]
   file: ./epoch=213-val_loss=0.0335-test_loss=0.0690.ckpt
