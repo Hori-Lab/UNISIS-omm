@@ -12,21 +12,21 @@ class SISForceField:
     bp:     bool = True
 
     # Bond
-    bond_k:  Quantity = 15.0 * kilocalorie_per_mole/(angstrom**2)
-    bond_r0: Quantity = 5.84 * angstrom
+    bond_k:  Quantity = field(default_factory=lambda: Quantity(15.0, kilocalorie_per_mole/(angstrom**2)))
+    bond_r0: Quantity = field(default_factory=lambda: Quantity(5.84, angstrom))
 
     # Angle
-    angle_k:  Quantity = 10.0 * kilocalorie_per_mole/(radian**2)
-    angle_a0: Quantity = 2.618 * radian
+    angle_k:  Quantity = field(default_factory=lambda: Quantity(10.0, kilocalorie_per_mole/(radian**2)))
+    angle_a0: Quantity = field(default_factory=lambda: Quantity(2.618, radian))
 
     # Dihedral (exponential)
-    dihexp_k:  Quantity = 1.4 * kilocalorie_per_mole
-    dihexp_w:  Quantity = 3.0 /(radian**2)
-    dihexp_p0: Quantity = 0.267 * radian
+    dihexp_k:  Quantity = field(default_factory=lambda: Quantity(1.4, kilocalorie_per_mole))
+    dihexp_w:  Quantity = field(default_factory=lambda: Quantity(3.0, radian**(-2)))
+    dihexp_p0: Quantity = field(default_factory=lambda: Quantity(0.267, radian))
 
     # WCA
-    wca_epsilon: Quantity = 2.0 * kilocalorie_per_mole
-    wca_sigma:   Quantity = 10.0 * angstrom
+    wca_epsilon: Quantity = field(default_factory=lambda: Quantity(2.0, kilocalorie_per_mole))
+    wca_sigma:   Quantity = field(default_factory=lambda: Quantity(10.0, angstrom))
     wca_exclusions = []
     wca_exclusions: Dict[str, bool] = field(default_factory=lambda: {'1-2': True, '1-3': True})
 

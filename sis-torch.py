@@ -187,10 +187,10 @@ class Control:    ### structure to group all simulation parameter
     outfile_dcd: str  = './md.dcd'
     outfile_rst: str  = './md.rst'
 
-    temp: Quantity        = 300.0 * unit.kelvin
-    LD_temp: Quantity     = 300.0 * unit.kelvin
-    LD_gamma: Quantity    = 0.5 / unit.picosecond
-    LD_dt: Quantity       = 50 * unit.femtoseconds
+    temp: Quantity     = field(default_factory=lambda: Quantity(300.0, unit.kelvin))
+    LD_temp: Quantity  = field(default_factory=lambda: Quantity(300.0, unit.kelvin))
+    LD_gamma: Quantity = field(default_factory=lambda: Quantity(0.5, unit.picosecond**(-1)))
+    LD_dt: Quantity    = field(default_factory=lambda: Quantity(50, unit.femtoseconds))
 
     use_NNP: bool = False
     NNP_model: str = ''
