@@ -71,13 +71,13 @@ Submit your job by the following command.
 (For GPU)
 
 ```
-sis-torch.py  --tmyaml simulate.yaml --ff htv23_nnp_dihexp.ff --cuda
+sis-torch.py  --tmyaml simulate.yaml --ff htv23_nnp_dihexp.ff --cuda 1> out 2> err
 ```
 
 (Otherwise)
 
 ```
-sis-torch.py  --tmyaml simulate.yaml --ff htv23_nnp_dihexp.ff
+sis-torch.py  --tmyaml simulate.yaml --ff htv23_nnp_dihexp.ff 1> out 2> err
 ```
 
 An example HTCondor script is [condor.txt](https://github.com/Hori-Lab/sismm/tree/main/examples/TMnet_T2HP/condor.txt).
