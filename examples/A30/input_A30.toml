@@ -1,0 +1,34 @@
+title = "sis input"
+
+[Files]
+    [Files.In]
+    #xml = "../../rna_cg2.xml"
+    #ff = "../../htv23_5.0_ee-17.ff"
+
+    pdb_ini = "A30.pdb"
+
+    [Files.Out]
+    prefix = "./md"
+
+[Condition]
+tempK = 300.00
+rng_seed = 123
+
+[MD]
+dt = 50.0
+nstep = 500000
+nstep_save = 500
+nstep_save_rst = 500
+friction = 0.5
+
+[Electrostatic]
+ionic_strength = 0.1
+cutoff_type = 1
+cutoff = 50.0
+no_charge = [1, 27]
+length_per_charge = 4.38178046
+exclude_covalent_bond_pairs = true
+
+[Progress]
+step = 1000
+

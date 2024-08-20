@@ -71,8 +71,7 @@ def get_atom(res):
 ################################################
 #KELVIN_TO_KT = unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB / unit.kilocalorie_per_mole
 #print KELVIN_TO_KT
-xml_default = os.path.dirname(os.path.realpath(__file__)) + '/rna_cg2.xml'
-
+FILENAME_XML_DEFAULT = 'rna_cg2.xml'
 
 ################################################
 #          Parser
@@ -86,7 +85,7 @@ parser_ctrl.add_argument('--input', type=str, help='TOML format input file')
 parser_ctrl.add_argument('--tmyaml', type=str, help='TorchMD format YAML file')
 
 parser.add_argument('--ff', type=str, help='TOML format force-field file')
-parser.add_argument('--xml', type=str, default=xml_default, help='XML file for topology information')
+parser.add_argument('--xml', type=str, default=None, help='XML file for topology information')
 
 parser.add_argument('--cuda', action='store_true', default=False)
 #parser_device = parser.add_mutually_exclusive_group()
@@ -179,7 +178,6 @@ print('')
 @dataclass
 class Control:    ### structure to group all simulation parameter
     device: str = ''
-    xml: str = ''
     restart: bool = False
     restart_file: str = None
     minimization: bool = False
@@ -188,11 +186,13 @@ class Control:    ### structure to group all simulation parameter
     Nstep_save: int   = 1
     Nstep_log:  int   = 1
 
-    infile_pdb: str   = None
-    outfile_log: str  = './md.log'
-    outfile_out: str  = './md.out'
-    outfile_dcd: str  = './md.dcd'
-    outfile_rst: str  = './md.rst'
+    xml:         str = None
+    ff:          str = None
+    infile_pdb:  str = None
+    outfile_log: str = './md.log'
+    outfile_out: str = './md.out'
+    outfile_dcd: str = './md.dcd'
+    outfile_rst: str = './md.rst'
 
     temp: Quantity     = field(default_factory=lambda: Quantity(300.0, unit.kelvin))
     LD_temp: Quantity  = field(default_factory=lambda: Quantity(300.0, unit.kelvin))
@@ -222,13 +222,14 @@ class Control:    ### structure to group all simulation parameter
     def __str__(self):
         return (f"Control:\n"
               + f"    device: {self.device}\n"
-              + f"    xml: {self.xml}\n"
               + f"    restart: {self.restart}\n"
               + f"    restart_file: {self.restart_file}\n"
               + f"    minimization: {self.minimization}\n"
               + f"    Nstep: {self.Nstep}\n"
               + f"    Nstep_save: {self.Nstep_save}\n"
               + f"    Nstep_log {self.Nstep_log}\n"
+              + f"    xml: {self.xml}\n"
+              + f"    ff: {self.ff}\n"
               + f"    infile_pdb: {self.infile_pdb}\n"
               + f"    outfile_log: {self.outfile_log}\n"
               + f"    outfile_out: {self.outfile_out}\n"
@@ -252,11 +253,6 @@ class Control:    ### structure to group all simulation parameter
 
 ctrl = Control()
 
-if not os.path.isfile(args.xml):
-    print("Error: could not find topology XML file, " + args.xml)
-    sys.exit(2)
-ctrl.xml = args.xml
-
 if args.cuda:
     ctrl.device = 'CUDA'
 else:
@@ -277,6 +273,10 @@ if args.input is not None:
             raise
 
 if toml_input is not None:
+    if 'xml' in toml_input['Files']['In']:
+        ctrl.xml = toml_input['Files']['In']['xml']
+    if 'ff' in toml_input['Files']['In']:
+        ctrl.ff = toml_input['Files']['In']['ff']
     ctrl.infile_pdb   = toml_input['Files']['In']['pdb_ini']
     ctrl.Nstep        = toml_input['MD']['nstep']
     ctrl.Nstep_save   = toml_input['MD']['nstep_save']
@@ -338,6 +338,18 @@ if tmyaml_input is not None:
     ctrl.NNP_emblist  = tmyaml_input['external']['embeddings']
     ctrl.use_NNP      = True
 
+
+# Argument --xml overrides "xml" in the TOML input
+if args.xml is not None:
+    ctrl.xml = args.xml
+# If neigher --xml or 'xml' in TOML exist, try to find the default xml file.
+elif ctrl.xml is None:
+    ctrl.xml = os.path.dirname(os.path.realpath(__file__)) + '/' + FILENAME_XML_DEFAULT
+
+# Argument --ff overrides "ff" in the TOML input
+if args.ff is not None:
+    ctrl.ff = args.ff
+
 print(ctrl)
 
 
@@ -371,8 +383,10 @@ for c in topology.chains():
 ################################################
 ff = SISForceField()
 
-if args.ff is not None:
-    ff.read_toml(args.ff)
+if ctrl.ff is not None:
+    ff.read_toml(ctrl.ff)
+else:
+    print("WARNING: Force field (ff) file was not specified. Default values are used.")
 
 print(ff)
 
@@ -425,6 +439,14 @@ if ctrl.ele:
                                    ctrl.ele_cutoff_type,
                                    ctrl.ele_cutoff_factor)
 print('')
+
+################################################
+#          Check XML file
+################################################
+if not os.path.isfile(ctrl.xml):
+    print("Error: could not find topology XML file, " + ctrl.xml)
+    print("You can specify the correct path by either --xml or 'xml' in the TOML input")
+    sys.exit(2)
 
 ################################################
 #             Construct forces
