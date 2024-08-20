@@ -157,7 +157,7 @@ class SISForceField:
             s += tab + tab + f"GU_dihd_k2:     {self.GU_dihd_k2}\n"
             s += tab + tab + f"GU_dihd_phi1:   {self.GU_dihd_phi1}\n"
             s += tab + tab + f"GU_dihd_phi2:   {self.GU_dihd_phi2}\n"
-        return s
+        return s[:-1]  # not including the last "\n"
 
     def read_toml(self, tomlfile):
         import toml
@@ -182,7 +182,7 @@ class SISForceField:
         if 'angle_ReB' in tm['potential']:
             self.angle_ReB = True
             self.angle_k   = tm['potential']['angle_ReB']['k'] * kilocalorie_per_mole
-            self.angle_a0  = tm['potential']['angle_ReB']['a0'] radian
+            self.angle_a0  = tm['potential']['angle_ReB']['a0'] * radian
 
         if 'dihedral_exp' in tm['potential']:
             self.dihexp = True

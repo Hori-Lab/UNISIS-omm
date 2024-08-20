@@ -19,8 +19,8 @@ import itertools as it
 import argparse
 from datetime import datetime
 from dataclasses import dataclass, field
-from typing import List
-from math import sqrt #, acos, atan2
+from typing import List, Dict
+from math import sqrt, pi, cos
 
 from numpy import diag
 from simtk import unit
@@ -32,12 +32,12 @@ from sis_params import SISForceField
 
 """
 * Following modules will be imported later if needed.
- import subprocess
- import yaml
- import toml
- import torch
- from openmmtorch import TorchForce
- from torchmdnet.models.model import load_model
+    import subprocess
+    import yaml
+    import toml
+    import torch
+    from openmmtorch import TorchForce
+    from torchmdnet.models.model import load_model
 """
 
 ################################################
@@ -204,13 +204,14 @@ class Control:    ### structure to group all simulation parameter
     ele_cutoff_type: int = 1
     ele_cutoff_factor: float = 50.0
     ele_no_charge: List = field(default_factory=lambda: [])
-    ele_length_per_charge: float = 4.38178046
+    ele_length_per_charge: Quantity = field(default_factory=lambda: Quantity(4.38178046, unit.angstrom))
     ele_exclusions: Dict = field(default_factory=lambda: {'1-2': True, '1-3': False})
 
     use_NNP: bool = False
     NNP_model: str = ''
-    NNP_emblist: List = field(default_factory=lambda: 
-                        [5,2,3,4,1,4,2,1,2,2,4,3,1,4,1,3,1,4,3,2,4,3,1,4,1,2,3,1,5])
+    NNP_emblist: List = None
+        #field(default_factory=lambda: 
+        #   [5,2,3,4,1,4,2,1,2,2,4,3,1,4,1,3,1,4,3,2,4,3,1,4,1,2,3,1,5])
 
     #box = 0.
     #Kconc: float = -1.
@@ -266,9 +267,9 @@ else:
 ################################################
 #tomldata = toml.load(sys.argv[1])
 toml_input = None
-if args.toml is not None:
+if args.input is not None:
     import toml
-    with open(args.toml) as stream:
+    with open(args.input) as stream:
         try:
             toml_input = toml.load(stream)
         except:
@@ -292,13 +293,13 @@ if toml_input is not None:
 
     if 'Electrostatic' in toml_input.keys():
         ctrl.ele = True
-        ctrl.ele_ionicstrength = toml_input['Electrostatic']['ionic_strength']
-        ctrl.ele_cutoff_type   = toml_input['Electrostatic']['cutoff_type']
-        ctrl.ele_cutoff_factor = toml_input['Electrostatic']['cutoff']
-        ctrl.ele_no_charge     = toml_input['Electrostatic']['no_charge']
-        ctrl.ele_length_per_charge = toml_input['Electrostatic']['length_per_charge']
+        ctrl.ele_ionic_strength = toml_input['Electrostatic']['ionic_strength']
+        ctrl.ele_cutoff_type    = toml_input['Electrostatic']['cutoff_type']
+        ctrl.ele_cutoff_factor  = toml_input['Electrostatic']['cutoff']
+        ctrl.ele_no_charge      = toml_input['Electrostatic']['no_charge']
+        ctrl.ele_length_per_charge = toml_input['Electrostatic']['length_per_charge'] * unit.angstrom
         if toml_input['Electrostatic']['exclude_covalent_bond_pairs']:
-            ctrl.ele_excludions['1-2'] = True
+            ctrl.ele_exclusions['1-2'] = True
 
     if 'NNP' in toml_input.keys():
         ctrl.use_NNP      = True
@@ -375,9 +376,60 @@ if args.ff is not None:
 
 print(ff)
 
+if ctrl.ele:
+    def set_ele(T, C, lp, cut_type, cut_factor):
+        tab = "    "
+        tab2 = tab + tab 
+        # Input: T, Temperature
+        #        C, Ionic strength
+        #        lp, Length per charge
+        # Output: cutoff, scale, kappa
+        print(tab + "Debye-Huckel electrostatics:")
+        print(tab2 + "Ionic strength: ", C, " M")
+        print(tab2 + "Temperature: ", T)
+        Tc = T/unit.kelvin - 273.15
+        diele = 87.740 - 0.4008*Tc + 9.398e-4*Tc**2 - 1.410e-6*Tc**3
+        print(tab2 + "Dielectric constant (T dependent): ", diele)
+        ELEC = 1.602176634e-19   # Elementary charge [C]
+        EPS0 = 8.8541878128e-12  # Electric constant [F/m]
+        BOLTZ_J = 1.380649e-23   # Boltzmann constant [J/K]
+        N_AVO = 6.02214076e23    # Avogadro constant [/mol]
+        JOUL2KCAL_MOL = 1.0/4184.0 * N_AVO  # (J -> kcal/mol)
+        lb = ELEC**2 / (4.0*pi*EPS0*diele*BOLTZ_J*T/unit.kelvin) * 1.0e10 * unit.angstrom
+        print(tab2 + "Bjerrum length: ", lb)
+        Zp = - lp / lb
+        print(tab2 + "Reduced charge: ", Zp)
+        lambdaD  = 1.0e10 * sqrt( (1.0e-3 * EPS0 * diele * BOLTZ_J)
+                 / (2.0 * N_AVO * ELEC**2)  ) * sqrt(T/unit.kelvin / C) * unit.angstrom
+        print(tab2 + "lambda_D:", lambdaD)
+
+        if cut_type == 1:
+            cutoff = cut_factor * unit.angstrom
+        elif cut_type == 2:
+            cutoff = cut_factor * lambdaD
+        else:
+            print("Error: Unknown cutoff_type for Electrostatic.")
+            sys.exit(2)
+
+        kappa = 1.0 / lambdaD
+        scale = JOUL2KCAL_MOL * 1.0e10 * ELEC**2 / (4.0 * pi * EPS0 * diele) * Zp**2 * unit.kilocalorie_per_mole
+        print(tab2 + "Cutoff: ", cutoff)
+        print(tab2 + "Scale: ", scale)
+        print(tab2 + "kappa: ", kappa)
+
+        return cutoff, scale, kappa
+
+    ele_cutoff, ele_scale, ele_kappa = set_ele(ctrl.temp,  # T
+                                   ctrl.ele_ionic_strength,  # C
+                                   ctrl.ele_length_per_charge, # lp 
+                                   ctrl.ele_cutoff_type,
+                                   ctrl.ele_cutoff_factor)
+print('')
+
 ################################################
 #             Construct forces
 ################################################
+print("Constructing forces:")
 system = app.ForceField(ctrl.xml).createSystem(topology)
 
 totalforcegroup = -1
@@ -416,11 +468,13 @@ if ff.angle:
 
 ########## Restricted Bending (ReB)
 if ff.angle_ReB:
-    ReB_energy_function = '0.5 * ReB_k * (cos(theta) - cos_ReB_a0)^2 / (sin(theta)^2)'
+    #ReB_energy_function = '0.5 * ReB_k * (cos(theta) - cos_ReB_a0)^2 / (sin(theta)^2)'
+    ReB_energy_function = '0.5 * ReB_k * (cos(theta) - cos_ReB_a0)^2 / (1.0 - cos(theta)^2)'
 
+    cos_0 = cos(ff.angle_a0 / unit.radian)
     ReBforce = omm.CustomAngleForce(ReB_energy_function)
     ReBforce.addGlobalParameter("ReB_k",      ff.angle_k)
-    ReBforce.addGlobalParameter("cos_ReB_a0", ff.angle_a0)
+    ReBforce.addGlobalParameter("cos_ReB_a0", cos_0)
     #ReBforce.addPerAngleParameter("ReB_k")
     #ReBforce.addPerAngleParameter("cos_ReB_a0")
 
@@ -435,7 +489,6 @@ if ff.angle_ReB:
     ReBforce.setUsesPeriodicBoundaryConditions(False)
     totalforcegroup += 1
     ReBforce.setForceGroup(totalforcegroup)
-    print("Force group ReB: ", totalforcegroup)
     print(f"    {totalforcegroup:2d}:    Angle ReB")
     groupnames.append("Uangl")
     system.addForce(ReBforce)
@@ -500,55 +553,30 @@ if ff.wca:
     system.addForce(WCAforce)
 
 ########## Debye-Huckel
-ionic_strength
-cutoff_type
-cutoff
-no_charge
-length_per_charge
-exclude_covalent_bond_pairs
-
-if simu.Kconc >= 0.:
-    T_unitless = simu.temp * unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB / unit.kilocalorie_per_mole
-    print("Electrostatic parameters:")
-    print("    [K] ", simu.Kconc, " mM")
-    simu.epsilon = 296.0736276 - 619.2813716 * T_unitless + 531.2826741 * T_unitless**2 - 180.0369914 * T_unitless**3;
-    print("    Dielectric constant ", simu.epsilon)
-    #simu.l_Bjerrum = 1./(simu.epsilon * unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB * simu.temp)
-    simu.l_Bjerrum = 332.0637*unit.angstroms / simu.epsilon
-    print("    Bjerrum length  ", simu.l_Bjerrum / T_unitless)
-    simu.Q = simu.b * T_unitless * unit.elementary_charge**2 / simu.l_Bjerrum
-    print("    Phosphate charge   ", -simu.Q)
-    simu.kappa = unit.sqrt (4*3.14159 * simu.l_Bjerrum * 2*simu.Kconc*6.022e-7 / (T_unitless * unit.angstrom**3))
-    print("    kappa   ", simu.kappa)
-    print("    Debye length ", 1.0/simu.kappa)
-    print("")
-
-if simu.Kconc >= 0.:
-    l_Bjerrum = 
-    Q = 
-    kappa = 
+if ctrl.ele:
     DHforce = omm.CustomNonbondedForce("scale*exp(-kappa*r)/r")
-    DHforce.addGlobalParameter("scale", simu.l_Bjerrum * simu.Q**2 * unit.kilocalorie_per_mole / unit.elementary_charge**2)
-    DHforce.addGlobalParameter("kappa", simu.kappa)
+    DHforce.addGlobalParameter("scale", ele_scale)
+    DHforce.addGlobalParameter("kappa", ele_kappa)
 
     for atom in topology.atoms():
         DHforce.addParticle([])
 
-    if ff.ele_exclusions['1-2']:
+    if ctrl.ele_exclusions['1-2']:
         for bond in topology.bonds():
             DHforce.addExclusion(bond[0].index, bond[1].index)
 
-    if ff.ele_exclusions['1-3']:
+    #if ctrl.ele_exclusions['1-3']:
+    if True:
         for chain in topology.chains():
             for prev, item, nxt in prev_and_next(chain.residues()):
                 if prev == None or nxt == None:
-                continue
+                    continue
                 DHforce.addExclusion(atm_index(prev), atm_index(nxt))
 
-    DHforce.setCutoffDistance(simu.cutoff)
+    DHforce.setCutoffDistance(ele_cutoff)
     totalforcegroup += 1
     DHforce.setForceGroup(totalforcegroup)
-    print("Force group Debye-Huckel: ", totalforcegroup)
+    print(f"    {totalforcegroup:2d}:    Ele")
     groupnames.append("Uele")
     DHforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffNonPeriodic)
     system.addForce(DHforce)
@@ -621,19 +649,21 @@ class EnergyReporter(object):
         if ff.bond:
             icol += 1
             self._out.write(' %13s' % f'{icol}:Ebond')
-
         if ff.angle:
             icol += 1
             self._out.write(' %13s' % f'{icol}:Eangl')
-
+        if ff.angle_ReB:
+            icol += 1
+            self._out.write(' %13s' % f'{icol}:Eangl')
         if ff.dihexp:
             icol += 1
             self._out.write(' %13s' % f'{icol}:Edih')
-
         if ff.wca:
             icol += 1
             self._out.write(' %13s' % f'{icol}:Ewca')
-
+        if ctrl.ele:
+            icol += 1
+            self._out.write(' %13s' % f'{icol}:Eele')
         if ctrl.use_NNP:
             icol += 1
             self._out.write(' %13s' % f'{icol}:Enn')
@@ -734,7 +764,7 @@ simulation.reporters.append(EnergyReporter(ctrl.outfile_out, ctrl.Nstep_save))
 simulation.reporters.append(app.DCDReporter(ctrl.outfile_dcd, ctrl.Nstep_save))
 simulation.reporters.append(app.CheckpointReporter(ctrl.outfile_rst, 1000000))
 
-print('Running ...')
+print('Simulation starting ...')
 sys.stdout.flush()
 sys.stderr.flush()
 
