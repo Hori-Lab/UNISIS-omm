@@ -197,9 +197,11 @@ class Control:    ### structure to group all simulation parameter
     outfile_rst: str = './md.rst'
 
     temp: Quantity     = field(default_factory=lambda: Quantity(300.0, unit.kelvin))
+    velo_seed: int = 0
     LD_temp: Quantity  = field(default_factory=lambda: Quantity(300.0, unit.kelvin))
     LD_gamma: Quantity = field(default_factory=lambda: Quantity(0.5, unit.picosecond**(-1)))
     LD_dt: Quantity    = field(default_factory=lambda: Quantity(50, unit.femtoseconds))
+    LD_seed: int = 0
 
     ele: bool = False
     ele_ionic_strength: float = 0.15
@@ -238,9 +240,11 @@ class Control:    ### structure to group all simulation parameter
               + f"    outfile_dcd: {self.outfile_dcd}\n"
               + f"    outfile_rst: {self.outfile_rst}\n"
               + f"    temp: {self.temp}\n"
+              + f"    velo_seed: {self.velo_seed}\n"
               + f"    LD_temp: {self.LD_temp}\n"
               + f"    LD_gamma: {self.LD_gamma}\n"
               + f"    LD_dt: {self.LD_dt}\n"
+              + f"    LD_seed: {self.LD_seed}\n"
               + f"    ele: {self.ele}\n"
               + f"    ele_ionic_strength: {self.ele_ionic_strength}\n"
               + f"    ele_cutoff_type: {self.ele_cutoff_type}\n"
@@ -288,9 +292,11 @@ if toml_input is not None:
     ctrl.outfile_out  = toml_input['Files']['Out']['prefix'] + '.out'
     ctrl.outfile_rst  = toml_input['Files']['Out']['prefix'] + '.rst'
     ctrl.temp         = toml_input['Condition']['tempK'] * unit.kelvin
+    ctrl.velo_seed    = toml_input['Condition']['rng_seed']
     ctrl.LD_temp      = toml_input['Condition']['tempK'] * unit.kelvin
     ctrl.LD_gamma     = toml_input['MD']['friction'] / unit.picosecond
     ctrl.LD_dt        = toml_input['MD']['dt'] * unit.femtoseconds
+    ctrl.LD_seed      = toml_input['Condition']['rng_seed']
     ctrl.ele          = False
 
     if 'Electrostatic' in toml_input.keys():
@@ -723,6 +729,7 @@ class EnergyReporter(object):
 
 #integrator = omm.LangevinIntegrator(ctrl.LD_temp, ctrl.LD_gamma, ctrl.LD_dt)
 integrator = omm.LangevinMiddleIntegrator(ctrl.LD_temp, ctrl.LD_gamma, ctrl.LD_dt)
+integrator.setRandomNumberSeed(ctrl.LD_seed)
 
 platform = None
 properties = None
@@ -776,7 +783,8 @@ if ctrl.restart == False:
     #state = simulation.context.getState(getPositions=True)
     #app.PDBFile.writeFile(topology, state.getPositions(), open("after_minimize.pdb", "w"), keepIds=True)
 
-    #simulation.context.setVelocitiesToTemperature(ctrl.temp)
+    if not ctrl.use_NNP:
+        simulation.context.setVelocitiesToTemperature(ctrl.temp, ctrl.velo_seed)
     ## This does not work (https://github.com/openmm/openmm-torch/issues/61)
 
 else:
