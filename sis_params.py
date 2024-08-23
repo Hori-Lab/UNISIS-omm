@@ -163,11 +163,12 @@ class SISForceField:
         import toml
         tm = toml.load(tomlfile)
 
-        self.bond   = False
-        self.angle  = False
-        self.dihexp = False
-        self.wca    = False
-        self.bp     = False
+        self.bond       = False
+        self.angle      = False
+        self.angle_ReB  = False
+        self.dihexp     = False
+        self.wca        = False
+        self.bp         = False
 
         if 'bond' in tm['potential']:
             self.bond = True
