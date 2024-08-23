@@ -16,7 +16,7 @@ rng_seed = 123
 
 [MD]
 dt = 50.0
-nstep = 500000
+nstep = 50000
 nstep_save = 500
 nstep_save_rst = 500
 friction = 0.5

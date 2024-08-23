@@ -49,13 +49,15 @@ def prev_and_next(iterable):
     prevs = it.chain([None], prevs)
     nexts = it.chain(it.islice(nexts, 1, None), [None])
     return zip(prevs, items, nexts)
+    # For N, this will geneerate [None,0,1], [0,1,2], ..., [N-3,N-2,N-1], [N-2,N-1,None]
 
-def prev_and_next_and_after(iterable):
-    prevs, items, nexts, afters = it.tee(iterable, 4)
-    prevs = it.chain([None], prevs)
-    nexts = it.chain(it.islice(nexts, 1, None), [None])
-    afters = it.chain(it.islice(afters, 2, None), [None, None])
-    return zip(prevs, items, nexts, afters)
+def fours(iterable):
+    a, b, c, d = it.tee(iterable, 4)
+    next(b, None)
+    next(c, None); next(c, None)
+    next(d, None); next(d, None); next(d, None)
+    return zip(a, b, c, d)
+    # For N, this will geneerate [0,1,2,3], [1,2,3,4], ..., [N-4,N-3,N-2,N-1] (no None)
 
 def atm_index(res):
     #return res.atoms[0].index
@@ -339,6 +341,9 @@ if tmyaml_input is not None:
     ctrl.use_NNP      = True
 
 
+################################################
+#          Arguments override
+################################################
 # Argument --xml overrides "xml" in the TOML input
 if args.xml is not None:
     ctrl.xml = args.xml
@@ -349,6 +354,7 @@ elif ctrl.xml is None:
 # Argument --ff overrides "ff" in the TOML input
 if args.ff is not None:
     ctrl.ff = args.ff
+
 
 print(ctrl)
 
@@ -528,11 +534,9 @@ if ff.dihexp:
     #dihedralforce.addPerTorsionParameter("dihexp_p0")
 
     for chain in topology.chains():
-        for prev, item, nxt, aft in prev_and_next_and_after(chain.residues()):
-            if prev == None or aft == None:
-                continue
-            dihedralforce.addTorsion(prev.index, item.index, nxt.index, aft.index)
-            #dihedralforce.addTorsion(prev.index, item.index, nxt.index, aft.index, 
+        for a, b, c, d in fours(chain.residues()):
+            dihedralforce.addTorsion(a.index, b.index, c.index, d.index)
+            #dihedralforce.addTorsion(a.index, b.index, c.index, d.index,
             #                           [dihexp_k, dihexp_w, dihexp_p0])
 
     totalforcegroup += 1
