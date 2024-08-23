@@ -216,6 +216,7 @@ class Control:    ### structure to group all simulation parameter
     NNP_emblist: List = None
         #field(default_factory=lambda: 
         #   [5,2,3,4,1,4,2,1,2,2,4,3,1,4,1,3,1,4,3,2,4,3,1,4,1,2,3,1,5])
+    NNP_modelforce: bool = True
 
     #box = 0.
     #Kconc: float = -1.
@@ -255,6 +256,7 @@ class Control:    ### structure to group all simulation parameter
               + f"    use_NNP: {self.use_NNP}\n"
               + f"    NNP_model: {self.NNP_model}\n"
               + f"    NNP_emblist: {self.NNP_emblist}\n"
+              + f"    NNP_modelforce: {self.NNP_modelforce}\n"
                 )
 
 ctrl = Control()
@@ -312,6 +314,7 @@ if toml_input is not None:
     if 'NNP' in toml_input.keys():
         ctrl.use_NNP      = True
         ctrl.NNP_model    = toml_input['Files']['In']['TMnet_ckpt']
+        ctrl.NNP_modelforce = toml_input['NNP']['model_force']
         #ctrl.NNP_emblist  = toml_input['external']['embeddings']
 
 ################################################
@@ -625,40 +628,60 @@ if ctrl.use_NNP:
     #model = load_model(ctrl.NNP_model, derivative=False)
     #torch.jit.script(model).save('model.pt')
 
-    class ForceModule(torch.nn.Module):
-        def __init__(self, epochfile, embeddings):
-            super(ForceModule, self).__init__()
+    if ctrl.NNP_modelforce:
+        class ForceModule(torch.nn.Module):
+            def __init__(self, epochfile, embeddings):
+                super(ForceModule, self).__init__()
 
-            #self.model = torch.jit.load('model.pt')
-            #self.model = torch.jit.script(load_model(epochfile, derivative=True))
-            self.model = torch.jit.script(load_model(epochfile, derivative=False))
-            '''derivative=False : Let OpenMM calculate force by back-propagation.'''
+                #self.model = torch.jit.load('model.pt')
+                self.model = torch.jit.script(load_model(epochfile, derivative=True))
 
-            self.model.eval()
-            # Worked
-            if ctrl.device == 'CUDA':
-                self.embeddings = embeddings.cuda()
-            else:
-                self.embeddings = embeddings
-            #self.batch = torch.arange(1).repeat_interleave(embeddings.size(0)).cuda()
-            #self.embeddings = embeddings
-            #self.batch = torch.arange(1).repeat_interleave(embeddings.size(0))
-            self.batch = None
-            self.box = None
+                self.model.eval()
 
-        def forward(self, positions):
-            positions_A = positions*10  # nm -> angstrom
-            energy, _ = self.model(self.embeddings, positions_A, self.batch, self.box)
-            #energy, force = self.model(self.embeddings, positions_A, self.batch, self.box)
-            #print('energy=', energy)
-            #print('force=', force)
-            #return energy*4.814, force*41.84
-            return energy*4.814
+                if ctrl.device == 'CUDA':
+                    self.embeddings = embeddings.cuda()
+                else:
+                    self.embeddings = embeddings
+                #self.batch = torch.arange(1).repeat_interleave(embeddings.size(0)).cuda()
+                #self.embeddings = embeddings
+                #self.batch = torch.arange(1).repeat_interleave(embeddings.size(0))
+                self.batch = None
+                self.box = None
+
+            def forward(self, positions):
+                positions_A = positions*10  # nm -> angstrom
+                energy, force = self.model(self.embeddings, positions_A, self.batch, self.box)
+                return energy*4.814, force*41.84
+
+    else:
+        class ForceModule(torch.nn.Module):
+            def __init__(self, epochfile, embeddings):
+                super(ForceModule, self).__init__()
+
+                self.model = torch.jit.script(load_model(epochfile, derivative=False))
+                '''derivative=False : Let OpenMM calculate force by back-propagation.'''
+
+                self.model.eval()
+
+                if ctrl.device == 'CUDA':
+                    self.embeddings = embeddings.cuda()
+                else:
+                    self.embeddings = embeddings
+
+                self.batch = None
+                self.box = None
+
+            def forward(self, positions):
+                positions_A = positions*10  # nm -> angstrom
+                energy, _ = self.model(self.embeddings, positions_A, self.batch, self.box)
+                return energy*4.814
 
     embeddings = torch.tensor(ctrl.NNP_emblist, dtype=torch.long)
 
     module = torch.jit.script(ForceModule(ctrl.NNP_model, embeddings))
     torch_force = TorchForce(module)
+    if ctrl.NNP_modelforce:
+        torch_force.setOutputsForces(True)
     totalforcegroup += 1
     torch_force.setForceGroup(totalforcegroup)
     print(f"    {totalforcegroup:2d}:    NNP")
