@@ -10,13 +10,13 @@ langevin_temperature: 300
 temperature: 300
 log_dir: ./                               # ignored
 output: md
-output_period: 1000
-save_period: 1000
+output_period: 500
+save_period: 10000
 precision: double                         # ignored
 replicas: 32                              # ignored
 rfa: false                                # ignored
 seed: 10001                               # ignored
-steps: 5000000
+steps: 10000
 topology: ''                              # ignored
 coordinates: ''                           # ignored
 structure: ./T2HP_unfolded.pdb

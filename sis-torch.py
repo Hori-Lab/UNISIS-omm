@@ -88,16 +88,14 @@ parser.add_argument('--tmyaml', action='store_true', help='Use this flag when th
 
 parser.add_argument('--ff', type=str, help='TOML format force-field file')
 parser.add_argument('--xml', type=str, default=None, help='XML file for topology information')
+parser.add_argument('-r','--restart', type=str, help='checkpoint file to restart')
 
 parser.add_argument('--cuda', action='store_true')
+
 #parser_device = parser.add_mutually_exclusive_group()
 #parser_device.add_argument('--cpu', action='store_true', default=False)
 #parser_device.add_argument('--cuda', action='store_true', default=False)
 
-#parser.add_argument('-R','--restart', action='store_true',
-#                    help='flag to restart simulation')
-#parser.add_argument('-r','--res_file', type=str, default='saw.chk',
-#                    help='checkpoint file for restart')
 #parser.add_argument('--platform', type=str, default=None,
 #                    help='Platform')
 #parser.add_argument('--CUDAdevice', type=str, default=None,
@@ -146,8 +144,9 @@ class Control:    ### structure to group all simulation parameter
     minimization: bool = False
 
     Nstep: int        = 10
-    Nstep_save: int   = 1
+    Nstep_out:  int   = 1
     Nstep_log:  int   = 1
+    Nstep_rst:  int   = 10
 
     xml:         str = None
     ff:          str = None
@@ -192,8 +191,9 @@ class Control:    ### structure to group all simulation parameter
               + f"    restart_file: {self.restart_file}\n"
               + f"    minimization: {self.minimization}\n"
               + f"    Nstep: {self.Nstep}\n"
-              + f"    Nstep_save: {self.Nstep_save}\n"
-              + f"    Nstep_log {self.Nstep_log}\n"
+              + f"    Nstep_out: {self.Nstep_out}\n"
+              + f"    Nstep_log: {self.Nstep_log}\n"
+              + f"    Nstep_rst: {self.Nstep_rst}\n"
               + f"    xml: {self.xml}\n"
               + f"    ff: {self.ff}\n"
               + f"    infile_pdb: {self.infile_pdb}\n"
@@ -262,8 +262,9 @@ if toml_input is not None:
         ctrl.ff = toml_input['Files']['In']['ff']
     ctrl.infile_pdb   = toml_input['Files']['In']['pdb_ini']
     ctrl.Nstep        = toml_input['MD']['nstep']
-    ctrl.Nstep_save   = toml_input['MD']['nstep_save']
-    ctrl.Nstep_out    = toml_input['Progress']['step']
+    ctrl.Nstep_out    = toml_input['MD']['nstep_save']
+    ctrl.Nstep_rst    = toml_input['MD']['nstep_save_rst']
+    ctrl.Nstep_log    = toml_input['Progress']['step']
     ctrl.outfile_dcd  = toml_input['Files']['Out']['prefix'] + '.dcd'
     ctrl.outfile_log  = toml_input['Files']['Out']['prefix'] + '.log'
     ctrl.outfile_out  = toml_input['Files']['Out']['prefix'] + '.out'
@@ -298,8 +299,9 @@ if toml_input is not None:
 if tmyaml_input is not None:
     ctrl.infile_pdb   = tmyaml_input['structure']
     ctrl.Nstep        = tmyaml_input['steps']
-    ctrl.Nstep_save   = tmyaml_input['save_period']
     ctrl.Nstep_out    = tmyaml_input['output_period']
+    ctrl.Nstep_log    = tmyaml_input['save_period']
+    ctrl.Nstep_rst    = tmyaml_input['save_period']
     ctrl.outfile_dcd  = tmyaml_input['output'] + '.dcd'
     ctrl.outfile_log  = tmyaml_input['output'] + '.log'
     ctrl.outfile_out  = tmyaml_input['output'] + '.out'
@@ -316,6 +318,13 @@ if tmyaml_input is not None:
 ################################################
 #          Arguments override
 ################################################
+if args.restart is not None:
+    ctrl.restart = True
+    ctrl.restart_file = args.restart
+    if not os.path.isfile(ctrl.restart_file):
+        print("Error: could not find the restart file, " + ctrl.restart_file)
+        sys.exit(2)
+
 # Argument --xml overrides "xml" in the TOML input
 if args.xml is not None:
     ctrl.xml = args.xml
@@ -777,12 +786,12 @@ else:
     print("Loading checkpoint ...")
     simulation.loadCheckpoint(ctrl.restart_file)
 
-simulation.reporters.append(app.StateDataReporter(ctrl.outfile_log, ctrl.Nstep_out, 
+simulation.reporters.append(app.StateDataReporter(ctrl.outfile_log, ctrl.Nstep_log, 
                             step=True, potentialEnergy=True, temperature=True, 
                             remainingTime=True, totalSteps=ctrl.Nstep, separator='  '))
-simulation.reporters.append(EnergyReporter(ctrl.outfile_out, ctrl.Nstep_save))
-simulation.reporters.append(app.DCDReporter(ctrl.outfile_dcd, ctrl.Nstep_save))
-simulation.reporters.append(app.CheckpointReporter(ctrl.outfile_rst, 1000000))
+simulation.reporters.append(EnergyReporter(ctrl.outfile_out, ctrl.Nstep_out))
+simulation.reporters.append(app.DCDReporter(ctrl.outfile_dcd, ctrl.Nstep_out))
+simulation.reporters.append(app.CheckpointReporter(ctrl.outfile_rst, ctrl.Nstep_rst))
 
 print('Simulation starting ...')
 sys.stdout.flush()
