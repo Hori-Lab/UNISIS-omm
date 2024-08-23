@@ -29,6 +29,7 @@ Again, this package can be easily installed by `mamba`.
 ### Simulation set up
 
 To run simulations, you need
+
 - model file (e.g. `epoch=299-val_loss...`)
 - force field file (e.g. `htv23_nnp_dihexp.ff`)
 - simulation input YAML file (e.g. `simulate.yamll`)
@@ -71,13 +72,34 @@ Submit your job by the following command.
 (For GPU)
 
 ```
-sis-torch.py  --tmyaml simulate.yaml --ff htv23_nnp_dihexp.ff --cuda 1> out 2> err
+sis-torch.py  --tmyaml simulate.yaml \
+              --ff htv23_nnp_dihexp.ff \
+              --cuda \
+              1> out 2> err
 ```
 
 (Otherwise)
 
 ```
-sis-torch.py  --tmyaml simulate.yaml --ff htv23_nnp_dihexp.ff 1> out 2> err
+sis-torch.py  --tmyaml simulate.yaml \
+              --ff htv23_nnp_dihexp.ff \
+              1> out 2> err
 ```
 
 An example HTCondor script is [condor.txt](https://github.com/Hori-Lab/sismm/tree/main/examples/TMnet_T2HP/condor.txt).
+
+### Restarting a simulation
+
+You can restart a simulation using `*.rst` file by adding `-r` or `--restart` option in the input command.
+
+```
+sis-torch.py --tmyaml simulate.yaml \
+             --ff htv23_nnp_dihexp.ff \
+             --restart ./run1/md.rst \
+             --cuda \
+             1> out 2> err
+```
+
+***Important***  
+If you restart the simulation in the same directory using the same input file, existing output files such as `md.out` and `md.dcd` from the previous run will be overwritten, i.e. you will **lose the data!** Therefore you must either change the prefix of the output filename or move previous results to another directory.
+
