@@ -82,61 +82,22 @@ FILENAME_XML_DEFAULT = 'rna_cg2.xml'
 parser = argparse.ArgumentParser(description='OpenMM script for the SIS-RNA model',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-parser_ctrl = parser.add_mutually_exclusive_group(required=True)
-parser_ctrl.add_argument('--input', type=str, help='TOML format input file')
-parser_ctrl.add_argument('--tmyaml', type=str, help='TorchMD format YAML file')
+parser.add_argument('input', type=str, help='TOML format input file (use --tmyaml if this is TorchMD YAML)')
+
+parser.add_argument('--tmyaml', action='store_true', help='Use this flag when the input is TorcMD format YAML file.')
 
 parser.add_argument('--ff', type=str, help='TOML format force-field file')
 parser.add_argument('--xml', type=str, default=None, help='XML file for topology information')
 
-parser.add_argument('--cuda', action='store_true', default=False)
+parser.add_argument('--cuda', action='store_true')
 #parser_device = parser.add_mutually_exclusive_group()
 #parser_device.add_argument('--cpu', action='store_true', default=False)
 #parser_device.add_argument('--cuda', action='store_true', default=False)
 
-#parser_init = parser.add_mutually_exclusive_group(required=True)
-#parser_init.add_argument('-i','--inixyz', type=str, default=None, help='initial xyz file')
-#parser_init.add_argument('-N','--nbead', type=int, default=0, help='number of beads')
-#
-#parser.add_argument('-n','--step', type=int, default='10000',
-#                    help='Number of step [10000]')
-#
-#parser.add_argument('--dt', type=float, default='50.0',
-#                    help='integration time step in fs [50.0]')
-#
-#parser.add_argument('-T','--temperature', type=float, default='300.0',
-#                    help='Temperature (K) [300.0]')
-#
-#parser.add_argument('-a','--angle', action='store_true',
-#                    help='Enable the angle potential')
-#
-#parser.add_argument('-b','--ReB', action='store_true',
-#                    help='Enable the Restricted Bending potential')
-#
-#parser.add_argument('-d','--dihexp', action='store_true',
-#                    help='Enable the dihedral potential (exponential form)')
-#
-#parser.add_argument('-I','--ionic_strength', type=float, default='-1.',
-#                    help='Ionic strength (M) [Default: no electrostatic (-1)]')
-#parser.add_argument('-c','--cutoff', type=float, default='30.',
-#                    help='Electrostatic cutoff (A) [30.0]')
-#
-#parser.add_argument('-t','--traj', type=str, default='saw.dcd',
-#                    help='trajectory output')
-#parser.add_argument('-e','--energy', type=str, default='saw.ene',
-#                    help='energy decomposition')
-#parser.add_argument('-o','--output', type=str, default='saw.out',
-#                    help='status and energy output')
-#parser.add_argument('-x','--frequency', type=int, default='100',
-#                    help='output and restart frequency')
-#parser.add_argument('-f','--finalxyz', type=str, default='final.xyz',
-#                    help='final structure xyz output')
-#
 #parser.add_argument('-R','--restart', action='store_true',
 #                    help='flag to restart simulation')
 #parser.add_argument('-r','--res_file', type=str, default='saw.chk',
 #                    help='checkpoint file for restart')
-
 #parser.add_argument('--platform', type=str, default=None,
 #                    help='Platform')
 #parser.add_argument('--CUDAdevice', type=str, default=None,
@@ -165,8 +126,8 @@ print('    Host: ' + os.uname().nodename)
 print('    OS: ' + os.uname().version)
 print('    Python: ' + sys.version)
 print('    OpenMM version: ' + omm.version.full_version)
-print('    OpenMM library path: ' + omm.version.openmm_library_path)
-print('    Directory: ' + os.getcwd())
+print('    OpenMM library: ' + omm.version.openmm_library_path)
+print('    CWD: ' + os.getcwd())
 print('    Command:', end='')
 for s in sys.argv:
     print(' '+s, end='')
@@ -266,12 +227,23 @@ if args.cuda:
 else:
     ctrl.device = 'default'
 
+
 ################################################
-#          Load input TOML
-################################################
-#tomldata = toml.load(sys.argv[1])
+#          Load input file
+###############################################
+""" It is not supposed to use both TOML input and TM-YAML input."""
+
+tmyaml_input = None
 toml_input = None
-if args.input is not None:
+if args.tmyaml:
+    import yaml
+    with open(args.input) as stream:
+        try:
+            tmyaml_input = yaml.safe_load(stream)
+        except yaml.YAMLError as err:
+            print (err)
+            raise
+else:
     import toml
     with open(args.input) as stream:
         try:
@@ -280,6 +252,9 @@ if args.input is not None:
             print ("Error: could not read the input TOML file.")
             raise
 
+################################################
+#          TOML data
+################################################
 if toml_input is not None:
     if 'xml' in toml_input['Files']['In']:
         ctrl.xml = toml_input['Files']['In']['xml']
@@ -320,18 +295,6 @@ if toml_input is not None:
 ################################################
 #          Load TorchMD input yaml
 ################################################
-
-tmyaml_input = None
-if args.tmyaml is not None:
-    import yaml
-    with open(args.tmyaml) as stream:
-        try:
-            tmyaml_input = yaml.safe_load(stream)
-            #print(tmyml_input)
-        except yaml.YAMLError as err:
-            print (err)
-            raise
-
 if tmyaml_input is not None:
     ctrl.infile_pdb   = tmyaml_input['structure']
     ctrl.Nstep        = tmyaml_input['steps']

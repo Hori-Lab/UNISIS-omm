@@ -88,10 +88,10 @@ class SISForceField:
         s += tab + "Switches\n"
         s += tab + tab + f"bond:      {self.bond}\n"
         s += tab + tab + f"angle:     {self.angle}\n"
-        s += tab + tab + f"angle_ReB: {self.angle}\n"
+        s += tab + tab + f"angle_ReB: {self.angle_ReB}\n"
         s += tab + tab + f"dihexp:    {self.dihexp}\n"
         s += tab + tab + f"wca:       {self.wca}\n"
-        s += tab + tab + f"bp:        {self.wca}\n"
+        s += tab + tab + f"bp:        {self.bp}\n"
         if self.bond:
             s += tab + "Bond:\n"
             s += tab + tab + f"k:  {self.bond_k}\n"
