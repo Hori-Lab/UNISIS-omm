@@ -526,6 +526,100 @@ if ff.dihexp:
     groupnames.append("Udih")
     system.addForce(dihedralforce)
 
+########## Base pair
+###### Hbond
+if ff.bp:
+    bps = {}
+    bps_u0 = {}
+    for l in open('test_T2S2HP_go.bpcoef'):
+        lsp = l.split()
+        imp = int(lsp[1])
+        jmp = int(lsp[2])
+        imp3 = lsp[3][0:3]
+        jmp3 = lsp[3][4:7]
+        imp3_rev = imp3[::-1]
+        jmp3_rev = jmp3[::-1]
+        u0 = float(lsp[4])
+        if (imp3, jmp3) in bps.keys():
+            bps[(imp3, jmp3)].append((imp, jmp))
+            assert bps_u0[(imp3, jmp3)] == u0
+        elif (jmp3_rev, imp3_rev) in bps.keys():
+            bps[(jmp3_rev, imp3_rev)].append((jmp, imp))
+            assert bps_u0[(jmp3, imp3)] == u0
+        else:
+            bps[(imp3, jmp3)] = [(imp, jmp),]
+            bps_u0[(imp3, jmp3)] = u0
+
+    totalforcegroup += 1
+    energy_function =  "- kr *(distance(a1, d1) - r0)^2"
+    energy_function += "- kt1*(angle(a1, d1, d2) - theta1)^2"
+    energy_function += "- kt2*(angle(d1, a1, a2) - theta2)^2"
+    energy_function += "- kt3*(angle(a1, d1, d3) - theta3)^2"
+    energy_function += "- kt4*(angle(d1, a1, a3) - theta4)^2"
+    energy_function += "- kp1*(1. + cos(dihedral(d2, d1, a1, a2) + phi1))"
+    energy_function += "- kp2*(1. + cos(dihedral(d3, d1, a1, a3) + phi2))"
+    energy_function = "Ubp0 * exp(" + energy_function + ")"
+
+    para_list_GC = [ff.GC_bond_k, ff.GC_bond_r,
+        ff.GC_angl_k1, ff.GC_angl_k2, ff.GC_angl_k3, ff.GC_angl_k4,
+        ff.GC_angl_theta1, ff.GC_angl_theta2, ff.GC_angl_theta3, ff.GC_angl_theta4,
+        ff.GC_dihd_k1, ff.GC_dihd_k2, ff.GC_dihd_phi1, ff.GC_dihd_phi2]
+    para_list_AU = [ff.AU_bond_k, ff.AU_bond_r,
+        ff.AU_angl_k1, ff.AU_angl_k2, ff.AU_angl_k3, ff.AU_angl_k4,
+        ff.AU_angl_theta1, ff.AU_angl_theta2, ff.AU_angl_theta3, ff.AU_angl_theta4,
+        ff.AU_dihd_k1, ff.AU_dihd_k2, ff.AU_dihd_phi1, ff.AU_dihd_phi2]
+    para_list_GU = [ff.GU_bond_k, ff.GU_bond_r,
+        ff.GU_angl_k1, ff.GU_angl_k2, ff.GU_angl_k3, ff.GU_angl_k4,
+        ff.GU_angl_theta1, ff.GU_angl_theta2, ff.GU_angl_theta3, ff.GU_angl_theta4,
+        ff.GU_dihd_k1, ff.GU_dihd_k2, ff.GU_dihd_phi1, ff.GU_dihd_phi2]
+
+    for bp3, bps_list in bps.items():
+        p = bp3[0][1] + bp3[1][1]
+
+        Hbforce = omm.CustomHbondForce(energy_function)
+        Hbforce.addPerDonorParameter('Ubp0')
+        Hbforce.addPerDonorParameter('kr')
+        Hbforce.addPerDonorParameter('r0')
+        Hbforce.addPerDonorParameter('kt1')
+        Hbforce.addPerDonorParameter('kt2')
+        Hbforce.addPerDonorParameter('kt3')
+        Hbforce.addPerDonorParameter('kt4')
+        Hbforce.addPerDonorParameter('theta1')
+        Hbforce.addPerDonorParameter('theta2')
+        Hbforce.addPerDonorParameter('theta3')
+        Hbforce.addPerDonorParameter('theta4')
+        Hbforce.addPerDonorParameter('kp1')
+        Hbforce.addPerDonorParameter('kp2')
+        Hbforce.addPerDonorParameter('phi1')
+        Hbforce.addPerDonorParameter('phi2')
+        Hbforce.setCutoffDistance(15.0)
+        Hbforce.setNonbondedMethod(omm.CustomHbondForce.CutoffNonPeriodic)
+        Hbforce.setForceGroup(totalforcegroup)
+
+        for (imp, jmp) in bps_list:
+            idx_i = imp - 1
+            idx_j = jmp - 1
+
+            para_list = [bps_u0[bp3] * unit.kilocalorie_per_mole,]
+            if p in ('GC', 'CG'):
+                para_list = para_list + para_list_GC
+            elif p in ('AU', 'UA'):
+                para_list = para_list + para_list_AU
+            elif p in ('GU', 'UG'):
+                para_list = para_list + para_list_GU
+            else:
+                print("Error: unknown pair. ", bp3, p)
+                sys.exit(2)
+            print (imp, jmp, para_list)
+
+            Hbforce.addAcceptor(idx_i, idx_i-1, idx_i+1, [])
+            Hbforce.addDonor   (idx_j, idx_j-1, idx_j+1, para_list)
+
+        system.addForce(Hbforce)
+
+    print(f"    {totalforcegroup:2d}:    BP")
+    groupnames.append("Ubp")
+
 ########## WCA
 if ff.wca:
     energy_function =  'step(sig-r) * ep * ((R6 - 2)*R6 + 1);'
@@ -685,6 +779,9 @@ class EnergyReporter(object):
         if ff.dihexp:
             icol += 1
             self._out.write(' %13s' % f'{icol}:Edih')
+        if ff.bp:
+            icol += 1
+            self._out.write(' %13s' % f'{icol}:Ebp')
         if ff.wca:
             icol += 1
             self._out.write(' %13s' % f'{icol}:Ewca')

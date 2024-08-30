@@ -35,52 +35,52 @@ class SISForceField:
     wca_exclusions: Dict[str, bool] = field(default_factory=lambda: {'1-2': True, '1-3': True})
 
     # Base pair
-    dS0: float = -1.0
+    dS0: float = -17.0
 
-    GC_bond_k: float = 1.0
-    GC_bond_r: float = 1.0
-    GC_angl_k1: float = 1.5
-    GC_angl_k2: float = 1.5
-    GC_angl_k3: float = 1.5
-    GC_angl_k4: float = 1.5
-    GC_angl_theta1: float = 1.8326
-    GC_angl_theta2: float = 1.8326
-    GC_angl_theta3: float = 0.9425
-    GC_angl_theta4: float = 0.9425
-    GC_dihd_k1: float = 0.5
-    GC_dihd_k2: float = 0.5
-    GC_dihd_phi1: float = 1.8326
-    GC_dihd_phi2: float = 1.1345
+    GC_bond_k:  Quantity = field(default_factory=lambda: Quantity(1.26,  angstrom**(-2)))
+    GC_bond_r:  Quantity = field(default_factory=lambda: Quantity(15.06, angstrom))
+    GC_angl_k1: Quantity = field(default_factory=lambda: Quantity(7.12,  radian**(-2)))
+    GC_angl_k2: Quantity = field(default_factory=lambda: Quantity(7.04,  radian**(-2)))
+    GC_angl_k3: Quantity = field(default_factory=lambda: Quantity(6.35,  radian**(-2)))
+    GC_angl_k4: Quantity = field(default_factory=lambda: Quantity(9.23,  radian**(-2)))
+    GC_angl_theta1: Quantity = field(default_factory=lambda: Quantity(1.81, radian))
+    GC_angl_theta2: Quantity = field(default_factory=lambda: Quantity(1.82, radian))
+    GC_angl_theta3: Quantity = field(default_factory=lambda: Quantity(0.92, radian))
+    GC_angl_theta4: Quantity = field(default_factory=lambda: Quantity(0.92, radian))
+    GC_dihd_k1: float = 2.11
+    GC_dihd_k2: float = 2.31
+    GC_dihd_phi1: Quantity = field(default_factory=lambda: Quantity(1.96,  radian))
+    GC_dihd_phi2: Quantity = field(default_factory=lambda: Quantity(1.15,  radian))
 
-    AU_bond_k: float = 1.0
-    AU_bond_r: float = 1.0
-    AU_angl_k1: float = 1.5
-    AU_angl_k2: float = 1.5
-    AU_angl_k3: float = 1.5
-    AU_angl_k4: float = 1.5
-    AU_angl_theta1: float = 1.8326
-    AU_angl_theta2: float = 1.8326
-    AU_angl_theta3: float = 0.9425
-    AU_angl_theta4: float = 0.9425
-    AU_dihd_k1: float = 0.5
-    AU_dihd_k2: float = 0.5
-    AU_dihd_phi1: float = 1.8326
-    AU_dihd_phi2: float = 1.1345
+    AU_bond_k:  Quantity = field(default_factory=lambda: Quantity(0.79,  angstrom**(-2)))
+    AU_bond_r:  Quantity = field(default_factory=lambda: Quantity(15.01, angstrom))
+    AU_angl_k1: Quantity = field(default_factory=lambda: Quantity(7.74,  radian**(-2)))
+    AU_angl_k2: Quantity = field(default_factory=lambda: Quantity(6.79,  radian**(-2)))
+    AU_angl_k3: Quantity = field(default_factory=lambda: Quantity(7.16,  radian**(-2)))
+    AU_angl_k4: Quantity = field(default_factory=lambda: Quantity(8.92,  radian**(-2)))
+    AU_angl_theta1: Quantity = field(default_factory=lambda: Quantity(1.81, radian))
+    AU_angl_theta2: Quantity = field(default_factory=lambda: Quantity(1.81, radian))
+    AU_angl_theta3: Quantity = field(default_factory=lambda: Quantity(0.93, radian))
+    AU_angl_theta4: Quantity = field(default_factory=lambda: Quantity(0.92, radian))
+    AU_dihd_k1: float = 2.61
+    AU_dihd_k2: float = 2.06
+    AU_dihd_phi1: Quantity = field(default_factory=lambda: Quantity(1.98,  radian))
+    AU_dihd_phi2: Quantity = field(default_factory=lambda: Quantity(1.09,  radian))
 
-    GU_bond_k: float = 1.0
-    GU_bond_r: float = 1.0
-    GU_angl_k1: float = 1.5
-    GU_angl_k2: float = 1.5
-    GU_angl_k3: float = 1.5
-    GU_angl_k4: float = 1.5
-    GU_angl_theta1: float = 1.8326
-    GU_angl_theta2: float = 1.8326
-    GU_angl_theta3: float = 0.9425
-    GU_angl_theta4: float = 0.9425
-    GU_dihd_k1: float = 0.5
-    GU_dihd_k2: float = 0.5
-    GU_dihd_phi1: float = 1.8326
-    GU_dihd_phi2: float = 1.1345
+    GU_bond_k:  Quantity = field(default_factory=lambda: Quantity(0.9,  angstrom**(-2)))
+    GU_bond_r:  Quantity = field(default_factory=lambda: Quantity(14.85, angstrom))
+    GU_angl_k1: Quantity = field(default_factory=lambda: Quantity(12.12,  radian**(-2)))
+    GU_angl_k2: Quantity = field(default_factory=lambda: Quantity( 3.37,  radian**(-2)))
+    GU_angl_k3: Quantity = field(default_factory=lambda: Quantity( 6.54,  radian**(-2)))
+    GU_angl_k4: Quantity = field(default_factory=lambda: Quantity(16.87,  radian**(-2)))
+    GU_angl_theta1: Quantity = field(default_factory=lambda: Quantity(1.86, radian))
+    GU_angl_theta2: Quantity = field(default_factory=lambda: Quantity(1.77, radian))
+    GU_angl_theta3: Quantity = field(default_factory=lambda: Quantity(0.96, radian))
+    GU_angl_theta4: Quantity = field(default_factory=lambda: Quantity(0.94, radian))
+    GU_dihd_k1: float = 2.12
+    GU_dihd_k2: float = 1.99
+    GU_dihd_phi1: Quantity = field(default_factory=lambda: Quantity(1.89,  radian))
+    GU_dihd_phi2: Quantity = field(default_factory=lambda: Quantity(1.16,  radian))
 
     def __str__(self):
         tab = '    '
