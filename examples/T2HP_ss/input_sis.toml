@@ -1,0 +1,47 @@
+title = "sis input"
+
+[Job]
+type = "DCD"
+
+[Files]
+      [Files.In]
+      ff = "./htv23_5.0_ee-17.ff"
+      fasta = "T2HP.fasta"
+      pdb_ini = "T2HP_folded.pdb"
+      #bpseq = "T2HP.bpseq"
+      bpcoef = "test_T2HP_go.bpcoef"
+      dcd = "./run1/md.dcd"
+
+      [Files.Out]
+      types = ["bp", "bpe", "bpall", "bpcoef"]
+      prefix = "./md"
+
+[Condition]
+      tempK = 300.00
+      rng_seed = 123
+
+[MD]
+integrator = "GJF-2GJ"
+dt_fs = 20.0
+nstep = 5000
+nstep_save = 100
+nstep_save_rst = 500
+neighbor_list_margin = 10.0
+#viscosity_Pas = 0.00001
+friction = 0.5
+
+[Electrostatic]
+ionic_strength = 0.15
+cutoff_type = 2
+cutoff = 10.0
+length_per_charge = 4.38178046
+exclude_covalent_bond_pairs = true
+exclude_covalent_angle_pairs = true
+
+[Basepair]
+model = 5
+min_loop = 3
+nstep_MC = 0
+
+[Progress]
+step = 1000

@@ -421,14 +421,14 @@ if ctrl.ele:
             sys.exit(2)
 
         kappa = 1.0 / lambdaD
-        scale = JOUL2KCAL_MOL * 1.0e10 * ELEC**2 / (4.0 * pi * EPS0 * diele) * Zp**2 * unit.kilocalorie_per_mole
+        scale = JOUL2KCAL_MOL * 1.0e10 * ELEC**2 / (4.0 * pi * EPS0 * diele) * unit.kilocalorie_per_mole * unit.angstrom
         print(tab2 + "Cutoff: ", cutoff)
         print(tab2 + "Scale: ", scale)
         print(tab2 + "kappa: ", kappa)
 
-        return cutoff, scale, kappa
+        return cutoff, scale, kappa, Zp
 
-    ele_cutoff, ele_scale, ele_kappa = set_ele(ctrl.temp,  # T
+    ele_cutoff, ele_scale, ele_kappa, ele_Zp = set_ele(ctrl.temp,  # T
                                    ctrl.ele_ionic_strength,  # C
                                    ctrl.ele_length_per_charge, # lp 
                                    ctrl.ele_cutoff_type,
@@ -629,15 +629,19 @@ if ff.bp:
 
 ########## WCA
 if ff.wca:
-    energy_function =  'step(sig-r) * ep * ((R6 - 2)*R6 + 1);'
+    energy_function =  'WCAflag1*WCAflag2*step(sig-r) * ep * ((R6 - 2)*R6 + 1);'
     energy_function += 'R6=(sig/r)^6;'
 
     WCAforce = omm.CustomNonbondedForce(energy_function)
     WCAforce.addGlobalParameter('ep',  ff.wca_epsilon)
     WCAforce.addGlobalParameter('sig', ff.wca_sigma)
+    WCAforce.addPerParticleParameter('WCAflag')
 
     for atom in topology.atoms():
-        WCAforce.addParticle([])
+        if atom.residue.name[1:2] == 'D':
+            WCAforce.addParticle([0,])
+        else:
+            WCAforce.addParticle([1,])
 
     # Exclusion for bond
     if ff.wca_exclusions['1-2']:
@@ -662,12 +666,16 @@ if ff.wca:
 
 ########## Debye-Huckel
 if ctrl.ele:
-    DHforce = omm.CustomNonbondedForce("scale*exp(-kappa*r)/r")
-    DHforce.addGlobalParameter("scale", ele_scale)
+    DHforce = omm.CustomNonbondedForce("DHscale*Zp1*Zp2*exp(-kappa*r)/r")
     DHforce.addGlobalParameter("kappa", ele_kappa)
+    DHforce.addGlobalParameter("DHscale", ele_scale)
+    DHforce.addPerParticleParameter('Zp')
 
     for atom in topology.atoms():
-        DHforce.addParticle([])
+        if atom.residue.name[1:2] == 'D':
+            DHforce.addParticle([0.0,])
+        else:
+            DHforce.addParticle([ele_Zp,])
 
     if ctrl.ele_exclusions['1-2']:
         for bond in topology.bonds():
