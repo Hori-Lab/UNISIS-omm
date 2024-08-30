@@ -36,6 +36,7 @@ class SISForceField:
 
     # Base pair
     dS0: float = -17.0
+    NNend: bool = True
 
     GC_bond_k:  Quantity = field(default_factory=lambda: Quantity(1.26,  angstrom**(-2)))
     GC_bond_r:  Quantity = field(default_factory=lambda: Quantity(15.06, angstrom))
@@ -117,6 +118,7 @@ class SISForceField:
         if self.bp:
             s += tab + "Basepair:\n"
             s += tab + tab + f"dS0: {self.dS0}\n"
+            s += tab + tab + f"NNend: {self.NNend}\n"
             s += tab + tab + f"GC_bond_k:  {self.GC_bond_k}\n"
             s += tab + tab + f"GC_bond_r:  {self.GC_bond_r}\n"
             s += tab + tab + f"GC_angl_k1: {self.GC_angl_k1}\n"
@@ -192,6 +194,56 @@ class SISForceField:
             self.dihexp_k  = tm['potential']['dihedral_exp']['k'] * kilocalorie_per_mole
             self.dihexp_w  = tm['potential']['dihedral_exp']['w'] / (radian**2)
             self.dihexp_p0 = tm['potential']['dihedral_exp']['phi0'] * radian
+
+        if 'basepair' in tm['potential']:
+            self.bp = True
+            self.dS0 = tm['potential']['basepair']['dS0']
+            self.NNend = tm['potential']['basepair']['NNend']
+
+            self.GC_bond_k = tm['potential']['basepair']['GC']['bond_k'] * angstrom**(-2)
+            self.GC_bond_r = tm['potential']['basepair']['GC']['bond_r'] * angstrom
+            self.GC_angl_k1 = tm['potential']['basepair']['GC']['angl_k1'] * radian**(-2)
+            self.GC_angl_k2 = tm['potential']['basepair']['GC']['angl_k2'] * radian**(-2)
+            self.GC_angl_k3 = tm['potential']['basepair']['GC']['angl_k3'] * radian**(-2)
+            self.GC_angl_k4 = tm['potential']['basepair']['GC']['angl_k4'] * radian**(-2)
+            self.GC_angl_theta1 = tm['potential']['basepair']['GC']['angl_theta1'] * radian
+            self.GC_angl_theta2 = tm['potential']['basepair']['GC']['angl_theta2'] * radian
+            self.GC_angl_theta3 = tm['potential']['basepair']['GC']['angl_theta3'] * radian
+            self.GC_angl_theta4 = tm['potential']['basepair']['GC']['angl_theta4'] * radian
+            self.GC_dihd_k1 = tm['potential']['basepair']['GC']['dihd_k1']
+            self.GC_dihd_k2 = tm['potential']['basepair']['GC']['dihd_k2']
+            self.GC_dihd_phi1 = tm['potential']['basepair']['GC']['dihd_phi1'] * radian
+            self.GC_dihd_phi2 = tm['potential']['basepair']['GC']['dihd_phi2'] * radian
+
+            self.AU_bond_k = tm['potential']['basepair']['AU']['bond_k'] * angstrom**(-2)
+            self.AU_bond_r = tm['potential']['basepair']['AU']['bond_r'] * angstrom
+            self.AU_angl_k1 = tm['potential']['basepair']['AU']['angl_k1'] * radian**(-2)
+            self.AU_angl_k2 = tm['potential']['basepair']['AU']['angl_k2'] * radian**(-2)
+            self.AU_angl_k3 = tm['potential']['basepair']['AU']['angl_k3'] * radian**(-2)
+            self.AU_angl_k4 = tm['potential']['basepair']['AU']['angl_k4'] * radian**(-2)
+            self.AU_angl_theta1 = tm['potential']['basepair']['AU']['angl_theta1'] * radian
+            self.AU_angl_theta2 = tm['potential']['basepair']['AU']['angl_theta2'] * radian
+            self.AU_angl_theta3 = tm['potential']['basepair']['AU']['angl_theta3'] * radian
+            self.AU_angl_theta4 = tm['potential']['basepair']['AU']['angl_theta4'] * radian
+            self.AU_dihd_k1 = tm['potential']['basepair']['AU']['dihd_k1']
+            self.AU_dihd_k2 = tm['potential']['basepair']['AU']['dihd_k2']
+            self.AU_dihd_phi1 = tm['potential']['basepair']['AU']['dihd_phi1'] * radian
+            self.AU_dihd_phi2 = tm['potential']['basepair']['AU']['dihd_phi2'] * radian
+
+            self.GU_bond_k = tm['potential']['basepair']['GU']['bond_k'] * angstrom**(-2)
+            self.GU_bond_r = tm['potential']['basepair']['GU']['bond_r'] * angstrom
+            self.GU_angl_k1 = tm['potential']['basepair']['GU']['angl_k1'] * radian**(-2)
+            self.GU_angl_k2 = tm['potential']['basepair']['GU']['angl_k2'] * radian**(-2)
+            self.GU_angl_k3 = tm['potential']['basepair']['GU']['angl_k3'] * radian**(-2)
+            self.GU_angl_k4 = tm['potential']['basepair']['GU']['angl_k4'] * radian**(-2)
+            self.GU_angl_theta1 = tm['potential']['basepair']['GU']['angl_theta1'] * radian
+            self.GU_angl_theta2 = tm['potential']['basepair']['GU']['angl_theta2'] * radian
+            self.GU_angl_theta3 = tm['potential']['basepair']['GU']['angl_theta3'] * radian
+            self.GU_angl_theta4 = tm['potential']['basepair']['GU']['angl_theta4'] * radian
+            self.GU_dihd_k1 = tm['potential']['basepair']['GU']['dihd_k1']
+            self.GU_dihd_k2 = tm['potential']['basepair']['GU']['dihd_k2']
+            self.GU_dihd_phi1 = tm['potential']['basepair']['GU']['dihd_phi1'] * radian
+            self.GU_dihd_phi2 = tm['potential']['basepair']['GU']['dihd_phi2'] * radian
 
         if 'wca' in tm['potential']:
             self.wca = True

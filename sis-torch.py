@@ -145,12 +145,13 @@ class Control:    ### structure to group all simulation parameter
 
     Nstep: int        = 10
     Nstep_out:  int   = 1
-    Nstep_log:  int   = 1
-    Nstep_rst:  int   = 10
+    Nstep_log:  int   = 1000000
+    Nstep_rst:  int   = 1000000
 
     xml:         str = None
     ff:          str = None
     infile_pdb:  str = None
+    infile_bpcoef:str = None
     outfile_log: str = './md.log'
     outfile_out: str = './md.out'
     outfile_dcd: str = './md.dcd'
@@ -197,6 +198,7 @@ class Control:    ### structure to group all simulation parameter
               + f"    xml: {self.xml}\n"
               + f"    ff: {self.ff}\n"
               + f"    infile_pdb: {self.infile_pdb}\n"
+              + f"    infile_bpcoef: {self.infile_bpcoef}\n"
               + f"    outfile_log: {self.outfile_log}\n"
               + f"    outfile_out: {self.outfile_out}\n"
               + f"    outfile_dcd: {self.outfile_dcd}\n"
@@ -261,10 +263,14 @@ if toml_input is not None:
     if 'ff' in toml_input['Files']['In']:
         ctrl.ff = toml_input['Files']['In']['ff']
     ctrl.infile_pdb   = toml_input['Files']['In']['pdb_ini']
+    ctrl.infile_bpcoef= toml_input['Files']['In']['bpcoef']
     ctrl.Nstep        = toml_input['MD']['nstep']
     ctrl.Nstep_out    = toml_input['MD']['nstep_save']
-    ctrl.Nstep_rst    = toml_input['MD']['nstep_save_rst']
-    ctrl.Nstep_log    = toml_input['Progress']['step']
+    if 'nstep_save_rst' in toml_input['MD']:
+        ctrl.Nstep_rst    = toml_input['MD']['nstep_save_rst']
+    if 'Progress' in toml_input:
+        if 'step' in toml_input['Progress']:
+            ctrl.Nstep_log    = toml_input['Progress']['step']
     ctrl.outfile_dcd  = toml_input['Files']['Out']['prefix'] + '.dcd'
     ctrl.outfile_log  = toml_input['Files']['Out']['prefix'] + '.log'
     ctrl.outfile_out  = toml_input['Files']['Out']['prefix'] + '.out'
@@ -273,7 +279,8 @@ if toml_input is not None:
     ctrl.velo_seed    = toml_input['Condition']['rng_seed']
     ctrl.LD_temp      = toml_input['Condition']['tempK'] * unit.kelvin
     ctrl.LD_gamma     = toml_input['MD']['friction'] / unit.picosecond
-    ctrl.LD_dt        = toml_input['MD']['dt'] * unit.femtoseconds
+    #ctrl.LD_dt        = toml_input['MD']['dt'] * unit.femtoseconds
+    ctrl.LD_dt        = toml_input['MD']['dt_fs'] * unit.femtoseconds
     ctrl.LD_seed      = toml_input['Condition']['rng_seed']
     ctrl.ele          = False
 
@@ -282,10 +289,11 @@ if toml_input is not None:
         ctrl.ele_ionic_strength = toml_input['Electrostatic']['ionic_strength']
         ctrl.ele_cutoff_type    = toml_input['Electrostatic']['cutoff_type']
         ctrl.ele_cutoff_factor  = toml_input['Electrostatic']['cutoff']
-        ctrl.ele_no_charge      = toml_input['Electrostatic']['no_charge']
+        if 'no_charge' in toml_input['Electrostatic']:
+            ctrl.ele_no_charge      = toml_input['Electrostatic']['no_charge']
         ctrl.ele_length_per_charge = toml_input['Electrostatic']['length_per_charge'] * unit.angstrom
-        if toml_input['Electrostatic']['exclude_covalent_bond_pairs']:
-            ctrl.ele_exclusions['1-2'] = True
+        if 'exclude_covalent_bond_pairs' in toml_input['Electrostatic']:
+            ctrl.ele_exclusions['1-2'] = toml_input['Electrostatic']['exclude_covalent_bond_pairs']
 
     if 'NNP' in toml_input.keys():
         ctrl.use_NNP      = True
@@ -527,11 +535,10 @@ if ff.dihexp:
     system.addForce(dihedralforce)
 
 ########## Base pair
-###### Hbond
 if ff.bp:
     bps = {}
     bps_u0 = {}
-    for l in open('test_T2S2HP_go.bpcoef'):
+    for l in open(ctrl.infile_bpcoef):
         lsp = l.split()
         imp = int(lsp[1])
         jmp = int(lsp[2])
@@ -610,7 +617,7 @@ if ff.bp:
             else:
                 print("Error: unknown pair. ", bp3, p)
                 sys.exit(2)
-            print (imp, jmp, para_list)
+            #print (imp, jmp, para_list)
 
             Hbforce.addAcceptor(idx_i, idx_i-1, idx_i+1, [])
             Hbforce.addDonor   (idx_j, idx_j-1, idx_j+1, para_list)
