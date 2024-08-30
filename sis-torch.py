@@ -14,7 +14,6 @@ __author__ = "Naoto Hori"
 import os
 import sys
 import time
-import re
 import itertools as it
 import argparse
 from datetime import datetime
@@ -429,10 +428,10 @@ if ctrl.ele:
         return cutoff, scale, kappa, Zp
 
     ele_cutoff, ele_scale, ele_kappa, ele_Zp = set_ele(ctrl.temp,  # T
-                                   ctrl.ele_ionic_strength,  # C
-                                   ctrl.ele_length_per_charge, # lp 
-                                   ctrl.ele_cutoff_type,
-                                   ctrl.ele_cutoff_factor)
+                                                       ctrl.ele_ionic_strength,  # C
+                                                       ctrl.ele_length_per_charge, # lp
+                                                       ctrl.ele_cutoff_type,
+                                                       ctrl.ele_cutoff_factor)
 print('')
 
 ################################################
@@ -784,28 +783,28 @@ class EnergyReporter(object):
         icol = 4
         if ff.bond:
             icol += 1
-            self._out.write(' %13s' % f'{icol}:Ebond')
+            self._out.write(' %13s' % f'{icol}:Ubond')
         if ff.angle:
             icol += 1
-            self._out.write(' %13s' % f'{icol}:Eangl')
+            self._out.write(' %13s' % f'{icol}:Uangl')
         if ff.angle_ReB:
             icol += 1
-            self._out.write(' %13s' % f'{icol}:Eangl')
+            self._out.write(' %13s' % f'{icol}:Uangl')
         if ff.dihexp:
             icol += 1
-            self._out.write(' %13s' % f'{icol}:Edih')
+            self._out.write(' %13s' % f'{icol}:Udih')
         if ff.bp:
             icol += 1
-            self._out.write(' %13s' % f'{icol}:Ebp')
+            self._out.write(' %13s' % f'{icol}:Ubp')
         if ff.wca:
             icol += 1
-            self._out.write(' %13s' % f'{icol}:Ewca')
+            self._out.write(' %13s' % f'{icol}:Uwca')
         if ctrl.ele:
             icol += 1
-            self._out.write(' %13s' % f'{icol}:Eele')
+            self._out.write(' %13s' % f'{icol}:Uele')
         if ctrl.use_NNP:
             icol += 1
-            self._out.write(' %13s' % f'{icol}:Enn')
+            self._out.write(' %13s' % f'{icol}:Unn')
 
         self._out.write("\n")
         self._out.flush()
@@ -892,7 +891,7 @@ if ctrl.restart == False:
 
     if not ctrl.use_NNP:
         simulation.context.setVelocitiesToTemperature(ctrl.temp, ctrl.velo_seed)
-    ## This does not work (https://github.com/openmm/openmm-torch/issues/61)
+    ## This does not work if we use OpenMM-Torch (https://github.com/openmm/openmm-torch/issues/61)
 
 else:
     print("Loading checkpoint ...")

@@ -4,10 +4,10 @@ forceterms:                               # ignored
 - repulsionrna                            # ignored
 - dihedrals_rna                           # ignored
 exclusions: ('bonds','angles')            # ignored
-timestep: 25
-langevin_gamma: 0.5
+timestep: 25                    # in fs
+langevin_gamma: 0.5             # in ps^(-1)
 langevin_temperature: 300
-temperature: 300
+temperature: 300                          # ignored
 log_dir: ./                               # ignored
 output: md
 output_period: 500
