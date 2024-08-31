@@ -1,13 +1,7 @@
 #!/usr/bin/env python
-""" OpenMM script to run SIS-ML simulations
-
-Code to run OpenMM simulation of the Single-Interaction-Site RNA model 
-with a machine learning potential trained by TorchMD-Net.
-
-references:
- https://github.com/openmm/openmm-torch/blob/master/tutorials/openmm-torch-nnpops.ipynb
- https://github.com/openmm/openmm-torch/issues/135
- The original framework of the code was adopted from https://github.com/tienhungf91/RNA_llps
+"""
+OpenMM script to run coarse-grained simulations using the Single-Interaction-Site RNA model 
+A part of the code was adopted from https://github.com/tienhungf91/RNA_llps
 """
 __author__ = "Naoto Hori"
 
@@ -191,31 +185,141 @@ else:
 
 print(ctrl)
 
+################################################
+#   Create "forcefield" from XML file
+################################################
+if not os.path.isfile(ctrl.xml):
+    print("Error: could not find topology XML file, " + ctrl.xml)
+    print("You can specify the correct path by either --xml or 'xml' in the TOML input")
+    sys.exit(2)
+
+forcefield = app.ForceField(ctrl.xml)
 
 ################################################
-#   Load topology and positions from the PDB
+#   Construct topology and positions
 ################################################
-topology = None
-positions = None
 
-cgpdb = app.PDBFile(ctrl.infile_pdb)
-topology = cgpdb.getTopology()
-positions = cgpdb.getPositions()
-#name_map = {'A': 'ADE', 'C': 'CYT', 'G': 'GUA', 'U': 'URA'}
-#name_map = {'A': 'RA', 'C': 'RC', 'G': 'RG', 'U': 'RU', 'D': 'RD'}
+# Sequence and structure are read from PDB if the input format is TorchMD YAML
+# The residue names have to be 'RA', 'RG', 'RU', 'RC', and 'RD'.
+if tmyaml_input is not None:
+    cgpdb = app.PDBFile(ctrl.infile_pdb)
+    topology = cgpdb.getTopology()
+    positions = cgpdb.getPositions()
+
+# Otherwise, sequence is read from FASTA, structure is read from PDB or XYZ
+# Note that any sequence information in PDB and XYZ will be ignored. Only 
+# coordinates therein will be used.
+else:
+    topology = app.Topology()
+    positions = []
+
+    print('Reading requences from FASTA file, ', ctrl.fasta)
+    chain_names = []
+    chain_name_save = None
+    seqs = []
+    seq = ''
+    try:
+        stream = open(ctrl.fasta)
+    except:
+        print('Error: cannot open the FASTA file, ', ctrl.fasta)
+        sys.exit(2)
+    else:
+        with stream:
+            for l in stream:
+                if l.startswith('>'):
+                    if len(seq) > 0:
+                        seqs.append(seq)
+                        chain_names.append(chain_name_save)
+                        seq = ''
+                    chain_name_save = l.strip()
+                    continue
+                else:
+                    seq += l.strip()
+            if len(seq) > 0:
+                seqs.append(seq)
+                chain_names.append(chain_name_save)
+
+    print_length = 80
+    nnt = 0  # Number of the total nucleotides
+    for i, seq in enumerate(seqs):
+        nnt += len(seq)
+        print('+--------1---------2---------3---------4---------5---------6---------7---------8')
+        print(f'> Chain {i+1}, {len(seq)} nts.  {chain_names[i]}')
+        for j in range(0, len(seq), print_length):
+            print(seq[0+j:print_length+j])
+    print('+------------------------------------------------------------------------------+')
+    print(f'Total number of particles: {nnt}\n')
+
+    if ctrl.infile_pdb is not None:
+        print(f'Reading the initial structure from PDB file, {ctrl.infile_pdb}')
+        try:
+            stream = open(ctrl.infile_pdb)
+        except:
+            print('Error: cannot open the PDB file, ', ctrl.infile_pdb)
+            sys.exit(2)
+        else:
+            with stream:
+                for l in stream:
+                    if l.startswith('ATOM  '):
+                        x = float(l[30:38]) * unit.angstrom
+                        y = float(l[38:46]) * unit.angstrom
+                        z = float(l[46:54]) * unit.angstrom
+                        positions.append([x,y,z])
+
+    elif ctrl.infile_xyz is not None:
+        print(f'Reading the initial structure from XYZ file, {ctrl.infile_xyz}')
+        try:
+            stream = open(ctrl.infile_xyz)
+        except:
+            print('Error: cannot open the XYZ file, ', ctrl.infile_xyz)
+            sys.exit(2)
+        else:
+            with stream:
+                for il, l in enumerate(stream):
+                    if il < 2:
+                        continue
+                    lsp = l.split()
+                    x = float(lsp[1]) * unit.angstrom
+                    y = float(lsp[2]) * unit.angstrom
+                    z = float(lsp[3]) * unit.angstrom
+                    positions.append([x,y,z])
+    else:
+        print("Error: either PDB or XYZ is required for the initial structure.")
+        print("       Specify 'pdb_ini' or 'xyz_ini' in the input file.")
+        sys.exit(2)
+
+    print(f"    Coordinates for {len(positions)} particles loaded.\n")
+
+    if len(positions) != nnt:
+        print(f'Error: inconsistency between FASTA file and PDB/XYZ file.')
+        print(f'       Number of nucleotides in the FASTA file, {nnt}.')
+        print(f'       Number of nucleotides in the PDB/XYZ file, {len(positions)}.')
+        sys.exit(2)
+
+    name_map = {'A': 'RA', 'C': 'RC', 'G': 'RG', 'U': 'RU', 'D': 'RD', 'N': 'RN'}
+    for seq in seqs:
+        chain = topology.addChain()
+        for i, s in enumerate(seq):
+            c = name_map[s]
+            res = topology.addResidue(c, chain)
+            atom = forcefield._templates[c].atoms[0]
+            topology.addAtom(atom.name, forcefield._atomTypes[atom.type].element, res)
+
 
 for c in topology.chains():
     for prev, item, nxt in prev_and_next(c.residues()):
-
         #item.name = name_map[item.name]
 
         if prev is None or nxt is None:
-            item.name += 'T'
+            if len(item.name) == 1:
+                item.name += 'T'
 
         if prev is not None:
             topology.addBond(get_atom(prev), get_atom(item))
 
 if ctrl.PBC:
+    print("Setting the periodic boundary condition box")
+    print("    ", ctrl.PBC_size, '\n')
     topology.setPeriodicBoxVectors(([ctrl.PBC_size[0] * 0.1, 0., 0.],
                                     [0., ctrl.PBC_size[1] * 0.1, 0.],
                                     [0., 0., ctrl.PBC_size[2] * 0.1]))
@@ -234,31 +338,21 @@ print(ff)
 
 if ctrl.ele:
     def set_ele(T, C, lp, cut_type, cut_factor):
-        tab = "    "
-        tab2 = tab + tab 
         # Input: T, Temperature
         #        C, Ionic strength
         #        lp, Length per charge
         # Output: cutoff, scale, kappa
-        print(tab + "Debye-Huckel electrostatics:")
-        print(tab2 + "Ionic strength: ", C, " M")
-        print(tab2 + "Temperature: ", T)
+        ELEC    = 1.602176634e-19   # Elementary charge [C]
+        EPS0    = 8.8541878128e-12  # Electric constant [F/m]
+        BOLTZ_J = 1.380649e-23      # Boltzmann constant [J/K]
+        N_AVO   = 6.02214076e23     # Avogadro constant [/mol]
+        JOUL2KCAL_MOL = 1.0/4184.0 * N_AVO  # (J -> kcal/mol)
         Tc = T/unit.kelvin - 273.15
         diele = 87.740 - 0.4008*Tc + 9.398e-4*Tc**2 - 1.410e-6*Tc**3
-        print(tab2 + "Dielectric constant (T dependent): ", diele)
-        ELEC = 1.602176634e-19   # Elementary charge [C]
-        EPS0 = 8.8541878128e-12  # Electric constant [F/m]
-        BOLTZ_J = 1.380649e-23   # Boltzmann constant [J/K]
-        N_AVO = 6.02214076e23    # Avogadro constant [/mol]
-        JOUL2KCAL_MOL = 1.0/4184.0 * N_AVO  # (J -> kcal/mol)
         lb = ELEC**2 / (4.0*pi*EPS0*diele*BOLTZ_J*T/unit.kelvin) * 1.0e10 * unit.angstrom
-        print(tab2 + "Bjerrum length: ", lb)
         Zp = - lp / lb
-        print(tab2 + "Reduced charge: ", Zp)
         lambdaD  = 1.0e10 * sqrt( (1.0e-3 * EPS0 * diele * BOLTZ_J)
                  / (2.0 * N_AVO * ELEC**2)  ) * sqrt(T/unit.kelvin / C) * unit.angstrom
-        print(tab2 + "lambda_D:", lambdaD)
-
         if cut_type == 1:
             cutoff = cut_factor * unit.angstrom
         elif cut_type == 2:
@@ -266,12 +360,18 @@ if ctrl.ele:
         else:
             print("Error: Unknown cutoff_type for Electrostatic.")
             sys.exit(2)
-
         kappa = 1.0 / lambdaD
         scale = JOUL2KCAL_MOL * 1.0e10 * ELEC**2 / (4.0 * pi * EPS0 * diele) * unit.kilocalorie_per_mole * unit.angstrom
-        print(tab2 + "Cutoff: ", cutoff)
-        print(tab2 + "Scale: ", scale)
-        print(tab2 + "kappa: ", kappa)
+        print(f"    Debye-Huckel electrostatics:")
+        print(f"        Ionic strength: {C} M")
+        print(f"        Temperature: {T}")
+        print(f"        Dielectric constant (T dependent): {diele}")
+        print(f"        Bjerrum length: {lb}")
+        print(f"        Reduced charge: {Zp}")
+        print(f"        lambda_D: {lambdaD}")
+        print(f"        Cutoff: {cutoff}")
+        print(f"        Scale: {scale}")
+        print(f"        kappa: {kappa}")
 
         return cutoff, scale, kappa, Zp
 
@@ -282,19 +382,12 @@ if ctrl.ele:
                                                        ctrl.ele_cutoff_factor)
 print('')
 
-################################################
-#          Check XML file
-################################################
-if not os.path.isfile(ctrl.xml):
-    print("Error: could not find topology XML file, " + ctrl.xml)
-    print("You can specify the correct path by either --xml or 'xml' in the TOML input")
-    sys.exit(2)
 
 ################################################
 #             Construct forces
 ################################################
 print("Constructing forces:")
-system = app.ForceField(ctrl.xml).createSystem(topology)
+system = forcefield.createSystem(topology)
 
 totalforcegroup = -1
 groupnames = []
@@ -396,7 +489,7 @@ if ff.bp:
             assert bps_u0[(imp3, jmp3)] == u0
         elif (jmp3_rev, imp3_rev) in bps.keys():
             bps[(jmp3_rev, imp3_rev)].append((jmp, imp))
-            assert bps_u0[(jmp3, imp3)] == u0
+            assert bps_u0[(jmp3_rev, imp3_rev)] == u0
         else:
             bps[(imp3, jmp3)] = [(imp, jmp),]
             bps_u0[(imp3, jmp3)] = u0
@@ -481,8 +574,10 @@ if ff.wca:
     WCAforce.addGlobalParameter('sig', ff.wca_sigma)
     WCAforce.addPerParticleParameter('WCAflag')
 
-    for atom in topology.atoms():
-        if atom.residue.name[1:2] == 'D':
+    for residue in topology.residues():
+        if residue.name[1:2] == 'D':
+            WCAforce.addParticle([0,])
+        elif atm_index(residue)+1 in ctrl.ele_no_charge:
             WCAforce.addParticle([0,])
         else:
             WCAforce.addParticle([1,])
@@ -543,6 +638,12 @@ if ctrl.ele:
 
 ########## NNP
 if ctrl.use_NNP:
+    """
+    This section is to run OpenMM-Torch for a machine learning potential trained by TorchMD-Net.
+    references:
+        https://github.com/openmm/openmm-torch/blob/master/tutorials/openmm-torch-nnpops.ipynb
+        https://github.com/openmm/openmm-torch/issues/135
+    """
     import torch
     from openmmtorch import TorchForce
     from torchmdnet.models.model import load_model
@@ -716,8 +817,6 @@ if ctrl.restart == False:
 
     simulation.context.setPositions(positions)
 
-    print("Setting the periodic boundary condition box")
-    print(" ", ctrl.PBC_size, '\n')
     if ctrl.PBC:
         boxvector = diag(ctrl.PBC_size) * unit.angstrom
         simulation.context.setPeriodicBoxVectors(*boxvector)
@@ -732,7 +831,7 @@ if ctrl.restart == False:
 
     ## Write PDB after minimization
     #state = simulation.context.getState(getPositions=True)
-    #app.PDBFile.writeFile(topology, state.getPositions(), open("after_minimize.pdb", "w"), keepIds=True)
+    #app.PDBFile.writeFile(topology, state.getPositions(), open("init.pdb", "w"), keepIds=True)
 
     if not ctrl.use_NNP:
         print(f"Setting the initial velocities, T = {ctrl.temp}, seed = {ctrl.velo_seed}\n")

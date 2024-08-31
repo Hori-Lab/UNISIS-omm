@@ -4,7 +4,7 @@
     <Type name="1" class="RG" element="Ga" mass="344.212"/>
     <Type name="2" class="RC" element="C"  mass="304.182"/>
     <Type name="3" class="RU" element="U"  mass="305.164"/>
-    <Type name="4" class="RD" element="D"  mass="300.000"/>
+    <Type name="4" class="RD" element="D"  mass="320.443"/>
   </AtomTypes>
   <Residues>
     <Residue name="RA">

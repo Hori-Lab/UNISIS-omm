@@ -115,7 +115,7 @@ class Control:    ### structure to group all simulation parameter
             self.infile_pdb   = tm['Files']['In']['pdb_ini']
         if 'xyz_ini' in tm['Files']['In']:
             self.infile_xyz   = tm['Files']['In']['xyz_ini']
-        if 'bpcoef_ini' in tm['Files']['In']:
+        if 'bpcoef' in tm['Files']['In']:
             self.infile_bpcoef   = tm['Files']['In']['bpcoef']
         self.outfile_dcd  = tm['Files']['Out']['prefix'] + '.dcd'
         self.outfile_log  = tm['Files']['Out']['prefix'] + '.log'
