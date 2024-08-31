@@ -215,7 +215,10 @@ for c in topology.chains():
         if prev is not None:
             topology.addBond(get_atom(prev), get_atom(item))
 
-#topology.setPeriodicBoxVectors([[ctrl.box.value_in_unit(unit.nanometers),0,0], [0,ctrl.box.value_in_unit(unit.nanometers),0], [0,0,ctrl.box.value_in_unit(unit.nanometers)]])
+if ctrl.PBC:
+    topology.setPeriodicBoxVectors(([ctrl.PBC_size[0] * 0.1, 0., 0.],
+                                    [0., ctrl.PBC_size[1] * 0.1, 0.],
+                                    [0., 0., ctrl.PBC_size[2] * 0.1]))
 
 ################################################
 #             Load force field
@@ -302,7 +305,6 @@ if ff.bond:
     for bond in topology.bonds():
         bondforce.addBond(bond[0].index, bond[1].index, ff.bond_r0, ff.bond_k)
 
-    bondforce.setUsesPeriodicBoundaryConditions(False)
     totalforcegroup += 1
     bondforce.setForceGroup(totalforcegroup)
     print(f"    {totalforcegroup:2d}:    Bond")
@@ -320,7 +322,6 @@ if ff.angle:
 
             angleforce.addAngle(prev.index, item.index, nxt.index, ff.angle_a0, ff.angle_k)
 
-    angleforce.setUsesPeriodicBoundaryConditions(False)
     totalforcegroup += 1
     angleforce.setForceGroup(totalforcegroup)
     print(f"    {totalforcegroup:2d}:    Angle")
@@ -347,7 +348,6 @@ if ff.angle_ReB:
             #ReBforce.addAngle(prev.index, item.index, nxt.index, [ReB_k, cos_ReB_a0])
             ReBforce.addAngle(prev.index, item.index, nxt.index)
 
-    ReBforce.setUsesPeriodicBoundaryConditions(False)
     totalforcegroup += 1
     ReBforce.setForceGroup(totalforcegroup)
     print(f"    {totalforcegroup:2d}:    Angle ReB")
@@ -710,17 +710,17 @@ if ctrl.device == 'CUDA':
 #        properties["DeviceIndex"] = tomldata.GPU.CUDAdevice
 #        print("DeviceIndex ", tomldata.GPU.CUDAdevice)
 
-#simulation = app.Simulation(topology, system, integrator, platform)
-#simulation = app.Simulation(topology, system, integrator)
 simulation = app.Simulation(topology, system, integrator, platform, properties)
 
 if ctrl.restart == False:
 
     simulation.context.setPositions(positions)
 
-    #boxvector = diag([ctrl.box/unit.angstrom for i in range(3)]) * unit.angstrom
-    #simulation.context.setPeriodicBoxVectors(*boxvector)
-    #print(simulation.usesPeriodicBoundaryConditions())
+    print("Setting the periodic boundary condition box")
+    print(" ", ctrl.PBC_size, '\n')
+    if ctrl.PBC:
+        boxvector = diag(ctrl.PBC_size) * unit.angstrom
+        simulation.context.setPeriodicBoxVectors(*boxvector)
 
     ## Write PDB before minimization
     #state = simulation.context.getState(getPositions=True)
@@ -735,12 +735,14 @@ if ctrl.restart == False:
     #app.PDBFile.writeFile(topology, state.getPositions(), open("after_minimize.pdb", "w"), keepIds=True)
 
     if not ctrl.use_NNP:
+        print(f"Setting the initial velocities, T = {ctrl.temp}, seed = {ctrl.velo_seed}\n")
         simulation.context.setVelocitiesToTemperature(ctrl.temp, ctrl.velo_seed)
     ## This does not work if we use OpenMM-Torch (https://github.com/openmm/openmm-torch/issues/61)
 
 else:
-    print("Loading checkpoint ...")
+    print("Loading checkpoint ...", ctrl.restart_file)
     simulation.loadCheckpoint(ctrl.restart_file)
+    print('')
 
 simulation.reporters.append(app.StateDataReporter(ctrl.outfile_log, ctrl.Nstep_log, 
                             step=True, potentialEnergy=True, temperature=True, 
