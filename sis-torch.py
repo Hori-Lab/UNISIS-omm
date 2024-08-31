@@ -721,7 +721,7 @@ print('')
 ################################################
 
 class EnergyReporter(object):
-    def __init__ (self, file, reportInterval):
+    def __init__ (self, file, reportInterval, simulation=None, state=None):
         self._out = open(file, 'w')
         self._reportInterval = reportInterval
         self._out.write('#     1:Step    2:T        3:Ekin        4:Epot')
@@ -753,6 +753,10 @@ class EnergyReporter(object):
             self._out.write(' %13s' % f'{icol}:Unn')
 
         self._out.write("\n")
+
+        # Output if this is the first step (not restarting)
+        if simulation is not None and state is not None:
+            self.report(simulation, state)
         self._out.flush()
 
     def __del__ (self):
@@ -767,7 +771,7 @@ class EnergyReporter(object):
         energy = []
         self._out.write(f"{simulation.currentStep:12d}")
         self._out.write(f" {ctrl.LD_temp/unit.kelvin:6.2f}")
-        state = simulation.context.getState(getEnergy=True)
+        #state = simulation.context.getState(getEnergy=True)  # This shouldn't be needed
         energy = state.getKineticEnergy() / unit.kilocalorie_per_mole
         self._out.write(f" {energy:13.6g}")
         energy = state.getPotentialEnergy() / unit.kilocalorie_per_mole
@@ -778,6 +782,13 @@ class EnergyReporter(object):
             self._out.write(f" {energy:13.6g}")
         self._out.write("\n")
         self._out.flush()
+
+class MyDCDReporter(app.DCDReporter):
+    def __init__(self, file, reportInterval, simulation=None, state=None):
+        super().__init__(file, reportInterval)
+        # Output if this is the first step (not restarting)
+        if simulation is not None and state is not None:
+            self.report(simulation, state)
 
 #integrator = omm.LangevinIntegrator(ctrl.LD_temp, ctrl.LD_gamma, ctrl.LD_dt)
 integrator = omm.LangevinMiddleIntegrator(ctrl.LD_temp, ctrl.LD_gamma, ctrl.LD_dt)
@@ -846,8 +857,14 @@ else:
 simulation.reporters.append(app.StateDataReporter(ctrl.outfile_log, ctrl.Nstep_log, 
                             step=True, potentialEnergy=True, temperature=True, 
                             remainingTime=True, totalSteps=ctrl.Nstep, separator='  '))
-simulation.reporters.append(EnergyReporter(ctrl.outfile_out, ctrl.Nstep_out))
-simulation.reporters.append(app.DCDReporter(ctrl.outfile_dcd, ctrl.Nstep_out))
+if ctrl.restart: # Not recording the initial state
+    simulation.reporters.append(EnergyReporter(ctrl.outfile_out, ctrl.Nstep_out))
+    simulation.reporters.append(MyDCDReporter(ctrl.outfile_dcd, ctrl.Nstep_out))
+else: # Recording the initial state (step = 0)
+    state = simulation.context.getState(getEnergy=True, getPositions=True)
+    simulation.reporters.append(EnergyReporter(ctrl.outfile_out, ctrl.Nstep_out, simulation, state))
+    simulation.reporters.append(MyDCDReporter(ctrl.outfile_dcd, ctrl.Nstep_out, simulation, state))
+
 simulation.reporters.append(app.CheckpointReporter(ctrl.outfile_rst, ctrl.Nstep_rst))
 
 print('Simulation starting ...')
@@ -857,6 +874,7 @@ sys.stderr.flush()
 t0 = time.time()
 
 simulation.step(ctrl.Nstep)
+#simulation.runForClockTime(time, checkpointFile=None, stateFile=None, checkpointInterval=None)
 
 #simulation.saveState('checkpoint.xml')
 prodtime = time.time() - t0
