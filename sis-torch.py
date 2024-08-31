@@ -17,17 +17,15 @@ import time
 import itertools as it
 import argparse
 from datetime import datetime
-from dataclasses import dataclass, field
-from typing import List, Dict
 from math import sqrt, pi, cos
 
 from numpy import diag
 from simtk import unit
-from simtk.unit import Quantity
 from openmm import app
 import openmm as omm
 
 from sis_params import SISForceField
+from control import Control
 
 """
 * Following modules will be imported later if needed.
@@ -133,109 +131,14 @@ print('')
 
 
 ################################################
-#          Control object
-################################################
-@dataclass
-class Control:    ### structure to group all simulation parameter
-    device: str = ''
-    restart: bool = False
-    restart_file: str = None
-    minimization: bool = False
-
-    Nstep: int        = 10
-    Nstep_out:  int   = 1
-    Nstep_log:  int   = 1000000
-    Nstep_rst:  int   = 1000000
-
-    xml:         str = None
-    ff:          str = None
-    infile_pdb:  str = None
-    infile_bpcoef:str = None
-    outfile_log: str = './md.log'
-    outfile_out: str = './md.out'
-    outfile_dcd: str = './md.dcd'
-    outfile_rst: str = './md.rst'
-
-    temp: Quantity     = field(default_factory=lambda: Quantity(300.0, unit.kelvin))
-    velo_seed: int = 0
-    LD_temp: Quantity  = field(default_factory=lambda: Quantity(300.0, unit.kelvin))
-    LD_gamma: Quantity = field(default_factory=lambda: Quantity(0.5, unit.picosecond**(-1)))
-    LD_dt: Quantity    = field(default_factory=lambda: Quantity(50, unit.femtoseconds))
-    LD_seed: int = 0
-
-    ele: bool = False
-    ele_ionic_strength: float = 0.15
-    ele_cutoff_type: int = 1
-    ele_cutoff_factor: float = 50.0
-    ele_no_charge: List = field(default_factory=lambda: [])
-    ele_length_per_charge: Quantity = field(default_factory=lambda: Quantity(4.38178046, unit.angstrom))
-    ele_exclusions: Dict = field(default_factory=lambda: {'1-2': True, '1-3': False})
-
-    use_NNP: bool = False
-    NNP_model: str = ''
-    NNP_emblist: List = None
-        #field(default_factory=lambda: 
-        #   [5,2,3,4,1,4,2,1,2,2,4,3,1,4,1,3,1,4,3,2,4,3,1,4,1,2,3,1,5])
-    NNP_modelforce: bool = True
-
-    #box = 0.
-    #Kconc: float = -1.
-    #b: float = 4.38178046 * unit.angstrom / unit.elementary_charge
-    #cutoff: float = 0.
-    #epsilon: float = 0.
-
-    def __str__(self):
-        return (f"Control:\n"
-              + f"    device: {self.device}\n"
-              + f"    restart: {self.restart}\n"
-              + f"    restart_file: {self.restart_file}\n"
-              + f"    minimization: {self.minimization}\n"
-              + f"    Nstep: {self.Nstep}\n"
-              + f"    Nstep_out: {self.Nstep_out}\n"
-              + f"    Nstep_log: {self.Nstep_log}\n"
-              + f"    Nstep_rst: {self.Nstep_rst}\n"
-              + f"    xml: {self.xml}\n"
-              + f"    ff: {self.ff}\n"
-              + f"    infile_pdb: {self.infile_pdb}\n"
-              + f"    infile_bpcoef: {self.infile_bpcoef}\n"
-              + f"    outfile_log: {self.outfile_log}\n"
-              + f"    outfile_out: {self.outfile_out}\n"
-              + f"    outfile_dcd: {self.outfile_dcd}\n"
-              + f"    outfile_rst: {self.outfile_rst}\n"
-              + f"    temp: {self.temp}\n"
-              + f"    velo_seed: {self.velo_seed}\n"
-              + f"    LD_temp: {self.LD_temp}\n"
-              + f"    LD_gamma: {self.LD_gamma}\n"
-              + f"    LD_dt: {self.LD_dt}\n"
-              + f"    LD_seed: {self.LD_seed}\n"
-              + f"    ele: {self.ele}\n"
-              + f"    ele_ionic_strength: {self.ele_ionic_strength}\n"
-              + f"    ele_cutoff_type: {self.ele_cutoff_type}\n"
-              + f"    ele_cutoff_factor: {self.ele_cutoff_factor}\n"
-              + f"    ele_no_charge: {self.ele_no_charge}\n"
-              + f"    ele_length_per_charge: {self.ele_length_per_charge}\n"
-              + f"    ele_exclusions: {self.ele_exclusions}\n"
-              + f"    use_NNP: {self.use_NNP}\n"
-              + f"    NNP_model: {self.NNP_model}\n"
-              + f"    NNP_emblist: {self.NNP_emblist}\n"
-              + f"    NNP_modelforce: {self.NNP_modelforce}\n"
-                )
+#          Load input file
+###############################################
 
 ctrl = Control()
 
-if args.cuda:
-    ctrl.device = 'CUDA'
-else:
-    ctrl.device = 'default'
-
-
-################################################
-#          Load input file
-###############################################
-""" It is not supposed to use both TOML input and TM-YAML input."""
-
 tmyaml_input = None
 toml_input = None
+""" It is not supposed to use both TOML input and TM-YAML input."""
 if args.tmyaml:
     import yaml
     with open(args.input) as stream:
@@ -244,6 +147,10 @@ if args.tmyaml:
         except yaml.YAMLError as err:
             print (err)
             raise
+
+    # Load TorchMD input yaml
+    ctrl.load_TorchMDyaml(tmyaml_input)
+
 else:
     import toml
     with open(args.input) as stream:
@@ -253,74 +160,8 @@ else:
             print ("Error: could not read the input TOML file.")
             raise
 
-################################################
-#          TOML data
-################################################
-if toml_input is not None:
-    if 'xml' in toml_input['Files']['In']:
-        ctrl.xml = toml_input['Files']['In']['xml']
-    if 'ff' in toml_input['Files']['In']:
-        ctrl.ff = toml_input['Files']['In']['ff']
-    ctrl.infile_pdb   = toml_input['Files']['In']['pdb_ini']
-    ctrl.infile_bpcoef= toml_input['Files']['In']['bpcoef']
-    ctrl.Nstep        = toml_input['MD']['nstep']
-    ctrl.Nstep_out    = toml_input['MD']['nstep_save']
-    if 'nstep_save_rst' in toml_input['MD']:
-        ctrl.Nstep_rst    = toml_input['MD']['nstep_save_rst']
-    if 'Progress' in toml_input:
-        if 'step' in toml_input['Progress']:
-            ctrl.Nstep_log    = toml_input['Progress']['step']
-    ctrl.outfile_dcd  = toml_input['Files']['Out']['prefix'] + '.dcd'
-    ctrl.outfile_log  = toml_input['Files']['Out']['prefix'] + '.log'
-    ctrl.outfile_out  = toml_input['Files']['Out']['prefix'] + '.out'
-    ctrl.outfile_rst  = toml_input['Files']['Out']['prefix'] + '.rst'
-    ctrl.temp         = toml_input['Condition']['tempK'] * unit.kelvin
-    ctrl.velo_seed    = toml_input['Condition']['rng_seed']
-    ctrl.LD_temp      = toml_input['Condition']['tempK'] * unit.kelvin
-    ctrl.LD_gamma     = toml_input['MD']['friction'] / unit.picosecond
-    #ctrl.LD_dt        = toml_input['MD']['dt'] * unit.femtoseconds
-    ctrl.LD_dt        = toml_input['MD']['dt_fs'] * unit.femtoseconds
-    ctrl.LD_seed      = toml_input['Condition']['rng_seed']
-    ctrl.ele          = False
-
-    if 'Electrostatic' in toml_input.keys():
-        ctrl.ele = True
-        ctrl.ele_ionic_strength = toml_input['Electrostatic']['ionic_strength']
-        ctrl.ele_cutoff_type    = toml_input['Electrostatic']['cutoff_type']
-        ctrl.ele_cutoff_factor  = toml_input['Electrostatic']['cutoff']
-        if 'no_charge' in toml_input['Electrostatic']:
-            ctrl.ele_no_charge      = toml_input['Electrostatic']['no_charge']
-        ctrl.ele_length_per_charge = toml_input['Electrostatic']['length_per_charge'] * unit.angstrom
-        if 'exclude_covalent_bond_pairs' in toml_input['Electrostatic']:
-            ctrl.ele_exclusions['1-2'] = toml_input['Electrostatic']['exclude_covalent_bond_pairs']
-
-    if 'NNP' in toml_input.keys():
-        ctrl.use_NNP      = True
-        ctrl.NNP_model    = toml_input['Files']['In']['TMnet_ckpt']
-        ctrl.NNP_modelforce = toml_input['NNP']['model_force']
-        #ctrl.NNP_emblist  = toml_input['external']['embeddings']
-
-################################################
-#          Load TorchMD input yaml
-################################################
-if tmyaml_input is not None:
-    ctrl.infile_pdb   = tmyaml_input['structure']
-    ctrl.Nstep        = tmyaml_input['steps']
-    ctrl.Nstep_out    = tmyaml_input['output_period']
-    ctrl.Nstep_log    = tmyaml_input['save_period']
-    ctrl.Nstep_rst    = tmyaml_input['save_period']
-    ctrl.outfile_dcd  = tmyaml_input['output'] + '.dcd'
-    ctrl.outfile_log  = tmyaml_input['output'] + '.log'
-    ctrl.outfile_out  = tmyaml_input['output'] + '.out'
-    ctrl.outfile_rst  = tmyaml_input['output'] + '.rst'
-    ctrl.temp         = tmyaml_input['temperature'] * unit.kelvin
-    ctrl.LD_temp      = tmyaml_input['langevin_temperature'] * unit.kelvin
-    ctrl.LD_gamma     = tmyaml_input['langevin_gamma'] / unit.picosecond
-    ctrl.LD_dt        = tmyaml_input['timestep'] * unit.femtoseconds
-    ctrl.NNP_model    = tmyaml_input['external']['file']
-    ctrl.NNP_emblist  = tmyaml_input['external']['embeddings']
-    ctrl.use_NNP      = True
-
+    # Load input TOML
+    ctrl.load_toml(toml_input)
 
 ################################################
 #          Arguments override
@@ -343,6 +184,10 @@ elif ctrl.xml is None:
 if args.ff is not None:
     ctrl.ff = args.ff
 
+if args.cuda:
+    ctrl.device = 'CUDA'
+else:
+    ctrl.device = 'default'
 
 print(ctrl)
 

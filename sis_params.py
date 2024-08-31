@@ -86,13 +86,13 @@ class SISForceField:
     def __str__(self):
         tab = '    '
         s =  "Force field:\n"
-        s += tab + "Switches\n"
-        s += tab + tab + f"bond:      {self.bond}\n"
-        s += tab + tab + f"angle:     {self.angle}\n"
-        s += tab + tab + f"angle_ReB: {self.angle_ReB}\n"
-        s += tab + tab + f"dihexp:    {self.dihexp}\n"
-        s += tab + tab + f"wca:       {self.wca}\n"
-        s += tab + tab + f"bp:        {self.bp}\n"
+        #s += tab + "Switches\n"
+        #s += tab + tab + f"bond:      {self.bond}\n"
+        #s += tab + tab + f"angle:     {self.angle}\n"
+        #s += tab + tab + f"angle_ReB: {self.angle_ReB}\n"
+        #s += tab + tab + f"dihexp:    {self.dihexp}\n"
+        #s += tab + tab + f"wca:       {self.wca}\n"
+        #s += tab + tab + f"bp:        {self.bp}\n"
         if self.bond:
             s += tab + "Bond:\n"
             s += tab + tab + f"k:  {self.bond_k}\n"
@@ -106,7 +106,7 @@ class SISForceField:
             s += tab + tab + f"k:  {self.angle_ReB_k}\n"
             s += tab + tab + f"a0: {self.angle_ReB_a0}\n"
         if self.dihexp:
-            s += tab + "Dihedral(exponential)\n"
+            s += tab + "Dihedral(exponential):\n"
             s += tab + tab + f"k:  {self.dihexp_k}\n"
             s += tab + tab + f"w:  {self.dihexp_w}\n"
             s += tab + tab + f"p0: {self.dihexp_p0}\n"
