@@ -11,7 +11,7 @@ import time
 import itertools as it
 import argparse
 from datetime import datetime
-from math import sqrt, pi, cos
+from math import sqrt, pi, cos, log
 
 from numpy import diag
 from simtk import unit
@@ -485,85 +485,179 @@ if ff.bp:
         imp3_rev = imp3[::-1]
         jmp3_rev = jmp3[::-1]
         u0 = float(lsp[4])
-        if (imp3, jmp3) in bps.keys():
+        if (imp3, jmp3) in bps:
             bps[(imp3, jmp3)].append((imp, jmp))
             assert bps_u0[(imp3, jmp3)] == u0
-        elif (jmp3_rev, imp3_rev) in bps.keys():
+        elif (jmp3_rev, imp3_rev) in bps:
             bps[(jmp3_rev, imp3_rev)].append((jmp, imp))
             assert bps_u0[(jmp3_rev, imp3_rev)] == u0
         else:
             bps[(imp3, jmp3)] = [(imp, jmp),]
             bps_u0[(imp3, jmp3)] = u0
+    #print ('len(bps)', len(bps))
+    #print ('len(bps_u0)', len(bps_u0))
 
     totalforcegroup += 1
-    energy_function =  "- kr *(distance(a1, d1) - r0)^2"
-    energy_function += "- kt1*(angle(a1, d1, d2) - theta1)^2"
-    energy_function += "- kt2*(angle(d1, a1, a2) - theta2)^2"
-    energy_function += "- kt3*(angle(a1, d1, d3) - theta3)^2"
-    energy_function += "- kt4*(angle(d1, a1, a3) - theta4)^2"
-    energy_function += "- kp1*(1. + cos(dihedral(d2, d1, a1, a2) + phi1))"
-    energy_function += "- kp2*(1. + cos(dihedral(d3, d1, a1, a3) + phi2))"
-    energy_function = "Ubp0 * exp(" + energy_function + ")"
+    #energy_function = "step(-penalty) * Ubp0 * exp(penalty);"
+    #energy_function = "select(step(dcut - abs(r-r0)), Ubp0 * exp(-penalty), 0);"
+    energy_function = "select(step(dcut - abs(r-r0)), select(step(penalty), Ubp0 * exp(-penalty), 0), 0);"
+    energy_function += "penalty = "
+    energy_function += "kr *(r - r0)^2"
+    energy_function += "+ kt1*(angle(a1, d1, d2) - theta1)^2"
+    energy_function += "+ kt2*(angle(d1, a1, a2) - theta2)^2"
+    energy_function += "+ kt3*(angle(a1, d1, d3) - theta3)^2"
+    energy_function += "+ kt4*(angle(d1, a1, a3) - theta4)^2"
+    energy_function += "+ kp1*(1. + cos(dihedral(d2, d1, a1, a2) + phi1))"
+    energy_function += "+ kp2*(1. + cos(dihedral(d3, d1, a1, a3) + phi2));"
+    energy_function += "r = distance(a1, d1)"
 
-    para_list_GC = [ff.GC_bond_k, ff.GC_bond_r,
-        ff.GC_angl_k1, ff.GC_angl_k2, ff.GC_angl_k3, ff.GC_angl_k4,
-        ff.GC_angl_theta1, ff.GC_angl_theta2, ff.GC_angl_theta3, ff.GC_angl_theta4,
-        ff.GC_dihd_k1, ff.GC_dihd_k2, ff.GC_dihd_phi1, ff.GC_dihd_phi2]
-    para_list_AU = [ff.AU_bond_k, ff.AU_bond_r,
-        ff.AU_angl_k1, ff.AU_angl_k2, ff.AU_angl_k3, ff.AU_angl_k4,
-        ff.AU_angl_theta1, ff.AU_angl_theta2, ff.AU_angl_theta3, ff.AU_angl_theta4,
-        ff.AU_dihd_k1, ff.AU_dihd_k2, ff.AU_dihd_phi1, ff.AU_dihd_phi2]
-    para_list_GU = [ff.GU_bond_k, ff.GU_bond_r,
-        ff.GU_angl_k1, ff.GU_angl_k2, ff.GU_angl_k3, ff.GU_angl_k4,
-        ff.GU_angl_theta1, ff.GU_angl_theta2, ff.GU_angl_theta3, ff.GU_angl_theta4,
-        ff.GU_dihd_k1, ff.GU_dihd_k2, ff.GU_dihd_phi1, ff.GU_dihd_phi2]
+    cutoff_ddist_GC = sqrt(log(abs(10.0/0.01)) / ff.GC_bond_k.value_in_unit(unit.angstrom**(-2))) * unit.angstrom
+    cutoff_ddist_AU = sqrt(log(abs(10.0/0.01)) / ff.AU_bond_k.value_in_unit(unit.angstrom**(-2))) * unit.angstrom
+    cutoff_ddist_GU = sqrt(log(abs(10.0/0.01)) / ff.GU_bond_k.value_in_unit(unit.angstrom**(-2))) * unit.angstrom
+    cutoff_GC = ff.GC_bond_r + cutoff_ddist_GC
+    cutoff_AU = ff.AU_bond_r + cutoff_ddist_AU
+    cutoff_GU = ff.GU_bond_r + cutoff_ddist_GU
+    print('cutoff_ddist_GC', cutoff_ddist_GC)
+    print('cutoff_ddist_AU', cutoff_ddist_AU)
+    print('cutoff_ddist_GU', cutoff_ddist_GU)
+    print('cutoff_GC', cutoff_GC)
+    print('cutoff_AU', cutoff_AU)
+    print('cutoff_GU', cutoff_GU)
+    para_list_GC = [cutoff_ddist_GC, ff.GC_bond_k, ff.GC_bond_r,
+                    ff.GC_angl_k1, ff.GC_angl_k2, ff.GC_angl_k3, ff.GC_angl_k4,
+                    ff.GC_angl_theta1, ff.GC_angl_theta2, ff.GC_angl_theta3, ff.GC_angl_theta4,
+                    ff.GC_dihd_k1, ff.GC_dihd_k2, ff.GC_dihd_phi1, ff.GC_dihd_phi2]
+    para_list_AU = [cutoff_ddist_AU, ff.AU_bond_k, ff.AU_bond_r,
+                    ff.AU_angl_k1, ff.AU_angl_k2, ff.AU_angl_k3, ff.AU_angl_k4,
+                    ff.AU_angl_theta1, ff.AU_angl_theta2, ff.AU_angl_theta3, ff.AU_angl_theta4,
+                    ff.AU_dihd_k1, ff.AU_dihd_k2, ff.AU_dihd_phi1, ff.AU_dihd_phi2]
+    para_list_GU = [cutoff_ddist_GU, ff.GU_bond_k, ff.GU_bond_r,
+                    ff.GU_angl_k1, ff.GU_angl_k2, ff.GU_angl_k3, ff.GU_angl_k4,
+                    ff.GU_angl_theta1, ff.GU_angl_theta2, ff.GU_angl_theta3, ff.GU_angl_theta4,
+                    ff.GU_dihd_k1, ff.GU_dihd_k2, ff.GU_dihd_phi1, ff.GU_dihd_phi2]
 
     for bp3, bps_list in bps.items():
+        #print (bp3, len(bps_list))
         p = bp3[0][1] + bp3[1][1]
 
-        Hbforce = omm.CustomHbondForce(energy_function)
-        Hbforce.addPerDonorParameter('Ubp0')
-        Hbforce.addPerDonorParameter('kr')
-        Hbforce.addPerDonorParameter('r0')
-        Hbforce.addPerDonorParameter('kt1')
-        Hbforce.addPerDonorParameter('kt2')
-        Hbforce.addPerDonorParameter('kt3')
-        Hbforce.addPerDonorParameter('kt4')
-        Hbforce.addPerDonorParameter('theta1')
-        Hbforce.addPerDonorParameter('theta2')
-        Hbforce.addPerDonorParameter('theta3')
-        Hbforce.addPerDonorParameter('theta4')
-        Hbforce.addPerDonorParameter('kp1')
-        Hbforce.addPerDonorParameter('kp2')
-        Hbforce.addPerDonorParameter('phi1')
-        Hbforce.addPerDonorParameter('phi2')
-        Hbforce.setCutoffDistance(15.0)
-        Hbforce.setNonbondedMethod(omm.CustomHbondForce.CutoffNonPeriodic)
-        Hbforce.setForceGroup(totalforcegroup)
+        for idx, (imp, jmp) in enumerate(bps_list):
+            i = imp - 1
+            j = jmp - 1
 
-        for (imp, jmp) in bps_list:
-            idx_i = imp - 1
-            idx_j = jmp - 1
-
+            Hbforce = omm.CustomHbondForce(energy_function)
+            Hbforce.addPerDonorParameter('Ubp0')
+            Hbforce.addPerDonorParameter('dcut')
+            Hbforce.addPerDonorParameter('kr')
+            Hbforce.addPerDonorParameter('r0')
+            Hbforce.addPerDonorParameter('kt1')
+            Hbforce.addPerDonorParameter('kt2')
+            Hbforce.addPerDonorParameter('kt3')
+            Hbforce.addPerDonorParameter('kt4')
+            Hbforce.addPerDonorParameter('theta1')
+            Hbforce.addPerDonorParameter('theta2')
+            Hbforce.addPerDonorParameter('theta3')
+            Hbforce.addPerDonorParameter('theta4')
+            Hbforce.addPerDonorParameter('kp1')
+            Hbforce.addPerDonorParameter('kp2')
+            Hbforce.addPerDonorParameter('phi1')
+            Hbforce.addPerDonorParameter('phi2')
+            if p in ('GC', 'CG'):
+                Hbforce.setCutoffDistance(cutoff_GC)
+            elif p in ('AU', 'UA'):
+                Hbforce.setCutoffDistance(cutoff_AU)
+            elif p in ('GU', 'UG'):
+                Hbforce.setCutoffDistance(cutoff_GU)
+            if ctrl.PBC:
+                Hbforce.setNonbondedMethod(omm.CustomHbondForce.CutoffPeriodic)
+            else:
+                Hbforce.setNonbondedMethod(omm.CustomHbondForce.CutoffNonPeriodic)
+            Hbforce.setForceGroup(totalforcegroup)
+    
             para_list = [bps_u0[bp3] * unit.kilocalorie_per_mole,]
             if p in ('GC', 'CG'):
-                para_list = para_list + para_list_GC
+                para_list += para_list_GC
             elif p in ('AU', 'UA'):
-                para_list = para_list + para_list_AU
+                para_list += para_list_AU
             elif p in ('GU', 'UG'):
-                para_list = para_list + para_list_GU
+                para_list += para_list_GU
             else:
                 print("Error: unknown pair. ", bp3, p)
                 sys.exit(2)
+    
             #print (imp, jmp, para_list)
-
-            Hbforce.addAcceptor(idx_i, idx_i-1, idx_i+1, [])
-            Hbforce.addDonor   (idx_j, idx_j-1, idx_j+1, para_list)
-
-        system.addForce(Hbforce)
+            Hbforce.addAcceptor(i, i-1, i+1, [])
+            Hbforce.addDonor   (j, j-1, j+1, para_list)
+    
+            system.addForce(Hbforce)
 
     print(f"    {totalforcegroup:2d}:    BP")
     groupnames.append("Ubp")
+
+#### save
+#    for bp3, bps_list in bps.items():
+#        #print (bp3, len(bps_list))
+#        p = bp3[0][1] + bp3[1][1]
+#
+#        Hbforce = omm.CustomHbondForce(energy_function)
+#        Hbforce.addPerDonorParameter('Ubp0')
+#        Hbforce.addPerDonorParameter('dcut')
+#        Hbforce.addPerDonorParameter('kr')
+#        Hbforce.addPerDonorParameter('r0')
+#        Hbforce.addPerDonorParameter('kt1')
+#        Hbforce.addPerDonorParameter('kt2')
+#        Hbforce.addPerDonorParameter('kt3')
+#        Hbforce.addPerDonorParameter('kt4')
+#        Hbforce.addPerDonorParameter('theta1')
+#        Hbforce.addPerDonorParameter('theta2')
+#        Hbforce.addPerDonorParameter('theta3')
+#        Hbforce.addPerDonorParameter('theta4')
+#        Hbforce.addPerDonorParameter('kp1')
+#        Hbforce.addPerDonorParameter('kp2')
+#        Hbforce.addPerDonorParameter('phi1')
+#        Hbforce.addPerDonorParameter('phi2')
+#        if p in ('GC', 'CG'):
+#            Hbforce.setCutoffDistance(cutoff_GC)
+#        elif p in ('AU', 'UA'):
+#            Hbforce.setCutoffDistance(cutoff_AU)
+#        elif p in ('GU', 'UG'):
+#            Hbforce.setCutoffDistance(cutoff_GU)
+#        if ctrl.PBC:
+#            Hbforce.setNonbondedMethod(omm.CustomHbondForce.CutoffPeriodic)
+#        else:
+#            Hbforce.setNonbondedMethod(omm.CustomHbondForce.CutoffNonPeriodic)
+#        Hbforce.setForceGroup(totalforcegroup)
+#
+#        para_list = [bps_u0[bp3] * unit.kilocalorie_per_mole,]
+#        if p in ('GC', 'CG'):
+#            para_list += para_list_GC
+#        elif p in ('AU', 'UA'):
+#            para_list += para_list_AU
+#        elif p in ('GU', 'UG'):
+#            para_list += para_list_GU
+#        else:
+#            print("Error: unknown pair. ", bp3, p)
+#            sys.exit(2)
+#
+#        list_i_Acc = {}
+#        list_j_Don = {}
+#        for idx, (imp, jmp) in enumerate(bps_list):
+#            i = imp - 1
+#            j = jmp - 1
+#            #print (imp, jmp, para_list)
+#            Hbforce.addAcceptor(i, i-1, i+1, [])
+#            Hbforce.addDonor   (j, j-1, j+1, para_list)
+#            list_i_Acc[i] = idx
+#            list_j_Don[j] = idx
+#
+#        for i, Acc in list_i_Acc.items():
+#            for j, Don in list_j_Don.items():
+#                if abs(j-i) < 3:
+#                    Hbforce.addExclusion(Don, Acc)
+#
+#        system.addForce(Hbforce)
+#
+#    print(f"    {totalforcegroup:2d}:    BP")
+#    groupnames.append("Ubp")
 
 ########## WCA
 if ff.wca:
