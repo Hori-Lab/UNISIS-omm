@@ -567,7 +567,9 @@ if ff.bp:
 
 ########## WCA
 if ff.wca:
-    energy_function =  'WCAflag1*WCAflag2*step(sig-r) * ep * ((R6 - 2)*R6 + 1);'
+    #energy_function =  'step(sig-r) * ep * ((R6 - 2)*R6 + 1);'
+    #energy_function =  'WCAflag1*WCAflag2*step(sig-r) * ep * ((R6 - 2)*R6 + 1);'
+    energy_function =  'select(WCAflag1*WCAflag2*step(sig-r), ep * ((R6 - 2)*R6 + 1), 0);'
     energy_function += 'R6=(sig/r)^6;'
 
     WCAforce = omm.CustomNonbondedForce(energy_function)
@@ -576,9 +578,8 @@ if ff.wca:
     WCAforce.addPerParticleParameter('WCAflag')
 
     for residue in topology.residues():
+        #WCAforce.addParticle([])
         if residue.name[1:2] == 'D':
-            WCAforce.addParticle([0,])
-        elif atm_index(residue)+1 in ctrl.ele_no_charge:
             WCAforce.addParticle([0,])
         else:
             WCAforce.addParticle([1,])
@@ -601,7 +602,10 @@ if ff.wca:
     WCAforce.setForceGroup(totalforcegroup)
     print(f"    {totalforcegroup:2d}:    WCA")
     groupnames.append("Uwca")
-    WCAforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffNonPeriodic)
+    if ctrl.PBC:
+        WCAforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffPeriodic)
+    else:
+        WCAforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffNonPeriodic)
     system.addForce(WCAforce)
 
 ########## Debye-Huckel
@@ -611,9 +615,11 @@ if ctrl.ele:
     DHforce.addGlobalParameter("DHscale", ele_scale)
     DHforce.addPerParticleParameter('Zp')
 
-    for atom in topology.atoms():
-        if atom.residue.name[1:2] == 'D':
-            DHforce.addParticle([0.0,])
+    for residue in topology.residues():
+        if residue.name[1:2] == 'D':
+            DHforce.addParticle([0,])
+        elif atm_index(residue)+1 in ctrl.ele_no_charge:
+            DHforce.addParticle([0,])
         else:
             DHforce.addParticle([ele_Zp,])
 
@@ -634,7 +640,10 @@ if ctrl.ele:
     DHforce.setForceGroup(totalforcegroup)
     print(f"    {totalforcegroup:2d}:    Ele")
     groupnames.append("Uele")
-    DHforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffNonPeriodic)
+    if ctrl.PBC:
+        DHforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffPeriodic)
+    else:
+        DHforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffNonPeriodic)
     system.addForce(DHforce)
 
 ########## NNP
