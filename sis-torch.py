@@ -323,6 +323,7 @@ if ctrl.PBC:
     topology.setPeriodicBoxVectors(([ctrl.PBC_size[0] * 0.1, 0., 0.],
                                     [0., ctrl.PBC_size[1] * 0.1, 0.],
                                     [0., 0., ctrl.PBC_size[2] * 0.1]))
+                    # This argument vector has to be in nanometer.
 
 ################################################
 #             Load force field
@@ -826,23 +827,24 @@ simulation = app.Simulation(topology, system, integrator, platform, properties)
 
 if ctrl.restart == False:
 
-    simulation.context.setPositions(positions)
-
     if ctrl.PBC:
         boxvector = diag(ctrl.PBC_size) * unit.angstrom
         simulation.context.setPeriodicBoxVectors(*boxvector)
+
+    simulation.context.setPositions(positions)
 
     ## Write PDB before minimization
     #state = simulation.context.getState(getPositions=True)
     #app.PDBFile.writeFile(topology, state.getPositions(), open("before_minimize.pdb", "w"), keepIds=True)
 
-    #print('Minimizing ...')
-    #simulation.minimizeEnergy(1*unit.kilocalorie_per_mole, 10000)
-    #simulation.minimizeEnergy()
+    if ctrl.minimization:
+        print('Minimizing energy ...')
+        #simulation.minimizeEnergy(ctrl.minimization_tolerance, ctrl.minimization_max_iter)
+        simulation.minimizeEnergy(5.0*unit.kilojoule_per_mole/unit.nanometer, ctrl.minimization_max_iter)
 
-    ## Write PDB after minimization
-    #state = simulation.context.getState(getPositions=True)
-    #app.PDBFile.writeFile(topology, state.getPositions(), open("init.pdb", "w"), keepIds=True)
+        ## Write PDB after minimization
+        #state = simulation.context.getState(getPositions=True)
+        #app.PDBFile.writeFile(topology, state.getPositions(), open("after_minimize.pdb", "w"), keepIds=True)
 
     if not ctrl.use_NNP:
         print(f"Setting the initial velocities, T = {ctrl.temp}, seed = {ctrl.velo_seed}\n")

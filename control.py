@@ -36,7 +36,7 @@ class Control:    ### structure to group all simulation parameter
 
     minimization: bool = False
     minimization_max_iter: int = None
-    minimization_tolerance: float = 1.0
+    minimization_tolerance: Quantity = field(default_factory=lambda: Quantity(1.0, unit.kilocalorie_per_mole))
 
     PBC: bool = False
     PBC_size: List = field(default_factory=lambda: [0.0, 0.0, 0.0])
@@ -167,15 +167,15 @@ class Control:    ### structure to group all simulation parameter
             if 'step' in tm['Progress']:
                 self.Nstep_log    = tm['Progress']['step']
 
-        if 'minimization' in tm:
+        if 'Minimization' in tm:
             if self.use_NNP:
                 print ('Warning: minimization cannot be done for NNP. Continue without minimization')
             else:
                 self.minimization = True
-                if 'max_iteration' in tm['minimization']:
-                    self.minimization_max_iter = tm['minimization']['max_iteration']
-                if 'tolerance' in tm['minimization']:
-                    self.minimization_tolerance = tm['minimization']['tolerance']
+                if 'max_iteration' in tm['Minimization']:
+                    self.minimization_max_iter = tm['Minimization']['max_iteration']
+                if 'tolerance' in tm['Minimization']:
+                    self.minimization_tolerance = tm['Minimization']['tolerance'] * unit.kilocalorie_per_mole
 
     def load_TorchMDyaml(self, yml):
         self.set_from_TorchMDyaml(tmyaml)
