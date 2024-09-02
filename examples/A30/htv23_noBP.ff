@@ -1,0 +1,20 @@
+title = "sis force field refined parameter 2"
+
+[potential]
+    [potential.bond]
+        k = 15.0
+        r0 = 6.13
+
+    [potential.angle_ReB]
+        k = 5.0
+        a0 = 2.6358
+
+    [potential.dihedral_exp]
+        k = 1.4
+        w = 3.0
+        phi0 = 0.267
+
+    [potential.wca]
+        sigma = 10.0
+        epsilon = 2.0
+

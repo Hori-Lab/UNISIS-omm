@@ -2,9 +2,8 @@ title = "sis input"
 
 [Files]
     [Files.In]
-    #xml = "../../rna_cg2.xml"
-    #ff = "../../htv23_5.0_ee-17.ff"
-
+    ff = "./htv23_noBP.ff"
+    fasta = "A30.fasta"
     pdb_ini = "A30.pdb"
 
     [Files.Out]
@@ -14,8 +13,11 @@ title = "sis input"
 tempK = 300.00
 rng_seed = 123
 
+[PBC_box]
+size = [200.0, 200.0, 200.0]
+
 [MD]
-dt = 50.0
+dt_fs = 50.0
 nstep = 50000
 nstep_save = 500
 nstep_save_rst = 500
