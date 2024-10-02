@@ -178,7 +178,6 @@ class Control:    ### structure to group all simulation parameter
                     self.minimization_tolerance = tm['Minimization']['tolerance'] * unit.kilocalorie_per_mole
 
     def load_TorchMDyaml(self, yml):
-        self.set_from_TorchMDyaml(tmyaml)
         self.infile_pdb   = yml['structure']
         self.Nstep        = yml['steps']
         self.Nstep_out    = yml['output_period']
