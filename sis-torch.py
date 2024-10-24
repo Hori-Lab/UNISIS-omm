@@ -948,6 +948,8 @@ if ctrl.ele:
     system.addForce(DHforce)
 
 ########## NNP
+dir_torchmdnet = None
+githash_torchmdnet = None
 if ctrl.use_NNP:
     """
     This section is to run OpenMM-Torch for a machine learning potential trained by TorchMD-Net.
@@ -957,7 +959,22 @@ if ctrl.use_NNP:
     """
     import torch
     from openmmtorch import TorchForce
+    import torchmdnet
     from torchmdnet.models.model import load_model
+
+    try:
+        dir_torchmdnet = os.path.dirname(os.path.abspath(torchmdnet.__file__))
+    except:
+        pass
+
+    if dir_torchmdnet is not None:
+        try:
+            import subprocess
+            githash_torchmdnet = subprocess.check_output(['git', 'rev-parse', 'HEAD'],
+                                                          cwd=dir_torchmdnet,
+                                                          stderr=subprocess.DEVNULL).decode('ascii').strip()
+        except:
+            pass
 
     #torch.set_default_dtype(torch.float32)
     #torch.set_default_dtype(torch.float64)
@@ -1026,6 +1043,12 @@ if ctrl.use_NNP:
     system.addForce(torch_force)
 
 print('')
+
+if ctrl.use_NNP:
+    print(f"TorchMD-Net:")
+    print(f"    Module directory: {dir_torchmdnet}")
+    print(f"    Git hash: {githash_torchmdnet}")
+    print(f'')
 
 ################################################
 #             Simulation set up
