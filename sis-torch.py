@@ -478,7 +478,7 @@ if ff.dihexp:
     system.addForce(dihedralforce)
 
 ########## Base pair
-if ff.bp:
+if ff.bp and ctrl.BP_model > 0:
 
     """ For specific secondary structure """
     """
@@ -1073,7 +1073,7 @@ class EnergyReporter(object):
         if ff.dihexp:
             icol += 1
             self._out.write(' %13s' % f'{icol}:Udih')
-        if ff.bp:
+        if ff.bp and ctrl.BP_model > 0:
             icol += 1
             self._out.write(' %13s' % f'{icol}:Ubp')
         if ff.wca:

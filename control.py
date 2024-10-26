@@ -41,7 +41,7 @@ class Control:    ### structure to group all simulation parameter
     PBC: bool = False
     PBC_size: List = field(default_factory=lambda: [0.0, 0.0, 0.0])
 
-    BP_model: int = 5
+    BP_model: int = 0
     BP_min_loop: int = 3
 
     ele: bool = False
@@ -141,6 +141,11 @@ class Control:    ### structure to group all simulation parameter
             self.LD_dt = tm['MD']['dt'] * 50 * unit.femtoseconds
 
         self.LD_seed      = tm['Condition']['rng_seed']
+
+        if 'BP' in tm:
+            self.BP_model = tm['Basepair']['model']
+            self.BP_min_loop = tm['Basepair']['min_loop']
+            #self.BP_nstep_MC = tm['Basepair']['nstep_MC']
 
         if 'Electrostatic' in tm:
             self.ele = True
