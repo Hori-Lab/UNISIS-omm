@@ -14,7 +14,7 @@ from datetime import datetime
 from math import sqrt, pi, cos, log
 
 from numpy import diag
-from simtk import unit
+from openmm import unit
 from openmm import app
 import openmm as omm
 
@@ -161,6 +161,10 @@ else:
 #          Arguments override
 ################################################
 if args.restart is not None:
+    if ctrl.job_type != 'MD':
+        print("Error: Job type has to be 'MD' in the input file to use the restart file.")
+        sys.exit(2)
+
     ctrl.restart = True
     ctrl.restart_file = args.restart
     if not os.path.isfile(ctrl.restart_file):
@@ -390,7 +394,8 @@ print('')
 print("Constructing forces:")
 system = forcefield.createSystem(topology)
 
-totalforcegroup = -1
+totalforcegroup = 0
+forcegroup = {}
 groupnames = []
 
 ########## Bond
@@ -400,6 +405,7 @@ if ff.bond:
         bondforce.addBond(bond[0].index, bond[1].index, ff.bond_r0, ff.bond_k)
 
     totalforcegroup += 1
+    forcegroup['Bond'] = totalforcegroup
     bondforce.setForceGroup(totalforcegroup)
     print(f"    {totalforcegroup:2d}:    Bond")
     groupnames.append("Ubond")
@@ -417,6 +423,7 @@ if ff.angle:
             angleforce.addAngle(prev.index, item.index, nxt.index, ff.angle_a0, ff.angle_k)
 
     totalforcegroup += 1
+    forcegroup['Angle'] = totalforcegroup
     angleforce.setForceGroup(totalforcegroup)
     print(f"    {totalforcegroup:2d}:    Angle")
     groupnames.append("Uangl")
@@ -443,6 +450,7 @@ if ff.angle_ReB:
             ReBforce.addAngle(prev.index, item.index, nxt.index)
 
     totalforcegroup += 1
+    forcegroup['ReB'] = totalforcegroup
     ReBforce.setForceGroup(totalforcegroup)
     print(f"    {totalforcegroup:2d}:    Angle ReB")
     groupnames.append("Uangl")
@@ -472,6 +480,7 @@ if ff.dihexp:
             #                           [dihexp_k, dihexp_w, dihexp_p0])
 
     totalforcegroup += 1
+    forcegroup['DihExp'] = totalforcegroup
     dihedralforce.setForceGroup(totalforcegroup)
     print(f"    {totalforcegroup:2d}:    Dihexp")
     groupnames.append("Udih")
@@ -493,6 +502,7 @@ if ff.bp and ctrl.BP_model > 0:
         bps.append((imp, jmp, imp3, jmp3, u0))
 
     totalforcegroup += 1
+    forcegroup['BP'] = totalforcegroup
     #energy_function = "step(-penalty) * Ubp0 * exp(penalty);"
     energy_function = "select(step(dcut - abs(r-r0)), Ubp0 * exp(-penalty), 0);"
     #energy_function = "select(step(dcut - abs(r-r0)), select(step(penalty), Ubp0 * exp(-penalty), 0), 0);"
@@ -607,6 +617,7 @@ if ff.bp and ctrl.BP_model > 0:
     #print ('len(bps_u0)', len(bps_u0))
 
     totalforcegroup += 1
+    forcegroup['BP'] = totalforcegroup
     #energy_function = "step(-penalty) * Ubp0 * exp(penalty);"
     energy_function = "select(step(dcut - abs(r-r0)), Ubp0 * exp(-penalty), 0);"
     #energy_function = "select(step(dcut - abs(r-r0)), select(step(penalty), Ubp0 * exp(-penalty), 0), 0);"
@@ -745,6 +756,7 @@ if ff.bp and ctrl.BP_model > 0:
     #print ('len(bps_u0)', len(bps_u0))
 
     totalforcegroup += 1
+    forcegroup['BP'] = totalforcegroup
     #energy_function = "step(-penalty) * Ubp0 * exp(penalty);"
     #energy_function = "select(step(dcut - abs(r-r0)), Ubp0 * exp(-penalty), 0);"
     energy_function = "select(max(0, dcut - abs(r-r0)), select(step(penalty), Ubp0 * exp(-penalty), 0), 0);"
@@ -900,6 +912,7 @@ if ff.wca:
 
     WCAforce.setCutoffDistance(ff.wca_sigma)
     totalforcegroup += 1
+    forcegroup['WCA'] = totalforcegroup
     WCAforce.setForceGroup(totalforcegroup)
     print(f"    {totalforcegroup:2d}:    WCA")
     groupnames.append("Uwca")
@@ -938,6 +951,7 @@ if ctrl.ele:
 
     DHforce.setCutoffDistance(ele_cutoff)
     totalforcegroup += 1
+    forcegroup['Ele'] = totalforcegroup
     DHforce.setForceGroup(totalforcegroup)
     print(f"    {totalforcegroup:2d}:    Ele")
     groupnames.append("Uele")
@@ -1037,6 +1051,7 @@ if ctrl.use_NNP:
     if ctrl.NNP_modelforce:
         torch_force.setOutputsForces(True)
     totalforcegroup += 1
+    forcegroup['NNP'] = totalforcegroup
     torch_force.setForceGroup(totalforcegroup)
     print(f"    {totalforcegroup:2d}:    NNP")
     groupnames.append("Unn")
@@ -1170,7 +1185,7 @@ if ctrl.restart == False:
     #state = simulation.context.getState(getPositions=True)
     #app.PDBFile.writeFile(topology, state.getPositions(), open("before_minimize.pdb", "w"), keepIds=True)
 
-    if ctrl.minimization:
+    if ctrl.job_type == 'MD' and ctrl.minimization:
         print('Minimizing energy ...')
         #simulation.minimizeEnergy(ctrl.minimization_tolerance, ctrl.minimization_max_iter)
         simulation.minimizeEnergy(5.0*unit.kilojoule_per_mole/unit.nanometer, ctrl.minimization_max_iter)
@@ -1189,28 +1204,142 @@ else:
     simulation.loadCheckpoint(ctrl.restart_file)
     print('')
 
-simulation.reporters.append(app.StateDataReporter(ctrl.outfile_log, ctrl.Nstep_log, 
-                            step=True, potentialEnergy=True, temperature=True, 
-                            remainingTime=True, totalSteps=ctrl.Nstep, separator='  '))
-if ctrl.restart: # Not recording the initial state
-    simulation.reporters.append(EnergyReporter(ctrl.outfile_out, ctrl.Nstep_out))
-    simulation.reporters.append(MyDCDReporter(ctrl.outfile_dcd, ctrl.Nstep_out))
-else: # Recording the initial state (step = 0)
-    state = simulation.context.getState(getEnergy=True, getPositions=True)
-    simulation.reporters.append(EnergyReporter(ctrl.outfile_out, ctrl.Nstep_out, simulation, state))
-    simulation.reporters.append(MyDCDReporter(ctrl.outfile_dcd, ctrl.Nstep_out, simulation, state))
 
-simulation.reporters.append(app.CheckpointReporter(ctrl.outfile_rst, ctrl.Nstep_rst))
+if ctrl.job_type == 'MD':
+    simulation.reporters.append(app.StateDataReporter(ctrl.outfile_log, ctrl.Nstep_log, 
+                                step=True, potentialEnergy=True, temperature=True, 
+                                remainingTime=True, totalSteps=ctrl.Nstep, separator='  '))
 
-print('Simulation starting ...')
-sys.stdout.flush()
-sys.stderr.flush()
+    if ctrl.restart: # Not recording the initial state
+        simulation.reporters.append(EnergyReporter(ctrl.outfile_out, ctrl.Nstep_out))
+        simulation.reporters.append(MyDCDReporter(ctrl.outfile_dcd, ctrl.Nstep_out))
 
-t0 = time.time()
+    else: # Recording the initial state (step = 0)
+        state = simulation.context.getState(getEnergy=True, getPositions=True)
+        simulation.reporters.append(EnergyReporter(ctrl.outfile_out, ctrl.Nstep_out, simulation, state))
+        simulation.reporters.append(MyDCDReporter(ctrl.outfile_dcd, ctrl.Nstep_out, simulation, state))
 
-simulation.step(ctrl.Nstep)
-#simulation.runForClockTime(time, checkpointFile=None, stateFile=None, checkpointInterval=None)
+    simulation.reporters.append(app.CheckpointReporter(ctrl.outfile_rst, ctrl.Nstep_rst))
 
-#simulation.saveState('checkpoint.xml')
-prodtime = time.time() - t0
-print("Simulation speed: % .2e steps/day" % (86400*ctrl.Nstep/(prodtime)))
+    print('Simulation starting ...')
+    sys.stdout.flush()
+    sys.stderr.flush()
+
+    t0 = time.time()
+
+    simulation.step(ctrl.Nstep)
+    #simulation.runForClockTime(time, checkpointFile=None, stateFile=None, checkpointInterval=None)
+
+    #simulation.saveState('checkpoint.xml')
+    prodtime = time.time() - t0
+    print("Simulation speed: % .2e steps/day" % (86400*ctrl.Nstep/(prodtime)))
+
+elif ctrl.job_type == 'DCD':
+    #simulation.reporters.append(EnergyReporter(ctrl.outfile_out, 1))
+
+    from dcd import DcdFile
+    dcd = DcdFile(ctrl.infile_dcd)
+    dcd.open_to_read()
+    dcd.read_header()
+
+    energy_file = open(ctrl.outfile_out, 'w')
+    energy_file.write('#    1:Frame        2:Epot')
+                      #123456789012 1234567890123'
+    icol = 2
+    if ff.bond:
+        icol += 1
+        energy_file.write(' %13s' % f'{icol}:Ubond')
+    if ff.angle:
+        icol += 1
+        energy_file.write(' %13s' % f'{icol}:Uangl')
+    if ff.angle_ReB:
+        icol += 1
+        energy_file.write(' %13s' % f'{icol}:Uangl')
+    if ff.dihexp:
+        icol += 1
+        energy_file.write(' %13s' % f'{icol}:Udih')
+    if ff.bp and ctrl.BP_model > 0:
+        icol += 1
+        energy_file.write(' %13s' % f'{icol}:Ubp')
+    if ff.wca:
+        icol += 1
+        energy_file.write(' %13s' % f'{icol}:Uwca')
+    if ctrl.ele:
+        icol += 1
+        energy_file.write(' %13s' % f'{icol}:Uele')
+    if ctrl.use_NNP:
+        icol += 1
+        energy_file.write(' %13s' % f'{icol}:Unn')
+    energy_file.write("\n")
+
+    force_files = {}
+    for s in ('Bond', 'Angle', 'ReB', 'DihExp', 'BP', 'Ele', 'WCA', 'NNP'):
+        if s not in forcegroup:
+            continue
+        if s == 'Bond':
+            force_files[s] = open(ctrl.outfile_prefix + f'_bond.out', 'w')
+        elif s in ('Angle', 'ReB'):
+            force_files[s] = open(ctrl.outfile_prefix + f'_angl.out', 'w')
+        elif s in ('DihExp', ):
+            force_files[s] = open(ctrl.outfile_prefix + f'_dihe.out', 'w')
+        elif s  == 'BP':
+            force_files[s] = open(ctrl.outfile_prefix + f'_bp.out', 'w')
+        elif s  == 'Ele':
+            force_files[s] = open(ctrl.outfile_prefix + f'_bp.out', 'w')
+        elif s  == 'WCA':
+            force_files[s] = open(ctrl.outfile_prefix + f'_exv.out', 'w')
+        elif s  == 'NNP':
+            force_files[s] = open(ctrl.outfile_prefix + f'_nn.out', 'w')
+
+    iframe = 0
+    while dcd.has_more_data():
+        iframe += 1
+        positions = dcd.read_onestep_omm()
+        simulation.context.setPositions(positions)
+
+        energies = {}
+        for s in ('Bond', 'Angle', 'ReB', 'DihExp', 'BP', 'Ele', 'WCA', 'NNP'):
+            if s not in forcegroup:
+                continue
+            #print(s)
+            i = forcegroup[s]
+            #print(system.getForce(i).getName())
+            state = simulation.context.getState(getEnergy=True, getForces=True, groups={i})
+            energies[s] = state.getPotentialEnergy() / unit.kilocalorie_per_mole
+            forces = state.getForces()
+            for force in forces:
+                x = force[0].value_in_unit(unit.kilocalorie_per_mole/unit.angstrom)
+                y = force[1].value_in_unit(unit.kilocalorie_per_mole/unit.angstrom)
+                z = force[2].value_in_unit(unit.kilocalorie_per_mole/unit.angstrom)
+                force_files[s].write(f' {x} {y} {z}')
+            force_files[s].write('\n')
+
+        energy_file.write(f"{iframe:12d}")
+        energy = sum(energies.values())
+        energy_file.write(f" {energy:13.6g}")
+        for s in ('Bond', 'Angle', 'ReB', 'DihExp', 'BP', 'Ele', 'WCA', 'NNP'):
+            if s not in forcegroup:
+                continue
+            energy_file.write(f" {energies[s]:13.6g}")
+        energy_file.write("\n")
+        #energy_file.flush()
+
+    energy_file.close()
+
+    for f in force_files.values():
+        f.close()
+
+#    def report(self, simulation, state):
+#        energy = []
+#        self._out.write(f"{simulation.currentStep:12d}")
+#        self._out.write(f" {ctrl.LD_temp/unit.kelvin:6.2f}")
+#        #state = simulation.context.getState(getEnergy=True)  # This shouldn't be needed
+#        energy = state.getKineticEnergy() / unit.kilocalorie_per_mole
+#        self._out.write(f" {energy:13.6g}")
+#        energy = state.getPotentialEnergy() / unit.kilocalorie_per_mole
+#        self._out.write(f" {energy:13.6g}")
+#        for i in range(totalforcegroup + 1):
+#            state = simulation.context.getState(getEnergy=True, groups=2**i)
+#            energy = state.getPotentialEnergy() / unit.kilocalorie_per_mole
+#            self._out.write(f" {energy:13.6g}")
+#        self._out.write("\n")

@@ -8,6 +8,7 @@ from simtk.unit import Quantity
 ################################################
 @dataclass
 class Control:    ### structure to group all simulation parameter
+    job_type: str = 'MD'
     device: str = ''
     restart: bool = False
     restart_file: str = None
@@ -17,6 +18,8 @@ class Control:    ### structure to group all simulation parameter
     infile_pdb:  str = None
     infile_xyz:  str = None
     infile_bpcoef:str = None
+    infile_dcd:  str = None
+    outfile_prefix: str = './md'
     outfile_log: str = './md.log'
     outfile_out: str = './md.out'
     outfile_dcd: str = './md.dcd'
@@ -61,6 +64,7 @@ class Control:    ### structure to group all simulation parameter
 
     def __str__(self):
         return (f"Control:\n"
+              + f"    job_type: {self.job_type}\n"
               + f"    device: {self.device}\n"
               + f"    restart: {self.restart}\n"
               + f"    restart_file: {self.restart_file}\n"
@@ -69,6 +73,7 @@ class Control:    ### structure to group all simulation parameter
               + f"    infile_pdb: {self.infile_pdb}\n"
               + f"    infile_xyz: {self.infile_xyz}\n"
               + f"    infile_bpcoef: {self.infile_bpcoef}\n"
+              + f"    infile_dcd: {self.infile_dcd}\n"
               + f"    outfile_log: {self.outfile_log}\n"
               + f"    outfile_out: {self.outfile_out}\n"
               + f"    outfile_dcd: {self.outfile_dcd}\n"
@@ -104,6 +109,9 @@ class Control:    ### structure to group all simulation parameter
                 )
 
     def load_toml(self, tm):
+        if 'Job' in tm:
+            if 'type' in tm['Job']:
+                self.job_type = tm['Job']['type']
 
         if 'xml' in tm['Files']['In']:
             self.xml = tm['Files']['In']['xml']
@@ -117,6 +125,9 @@ class Control:    ### structure to group all simulation parameter
             self.infile_xyz   = tm['Files']['In']['xyz_ini']
         if 'bpcoef' in tm['Files']['In']:
             self.infile_bpcoef   = tm['Files']['In']['bpcoef']
+        if 'dcd' in tm['Files']['In']:
+            self.infile_dcd   = tm['Files']['In']['dcd']
+        self.outfile_prefix = tm['Files']['Out']['prefix']
         self.outfile_dcd  = tm['Files']['Out']['prefix'] + '.dcd'
         self.outfile_log  = tm['Files']['Out']['prefix'] + '.log'
         self.outfile_out  = tm['Files']['Out']['prefix'] + '.out'
@@ -162,7 +173,7 @@ class Control:    ### structure to group all simulation parameter
             self.use_NNP      = True
             self.NNP_model    = tm['Files']['In']['TMnet_ckpt']
             self.NNP_modelforce = tm['NNP']['model_force']
-            #self.NNP_emblist  = tm['external']['embeddings']
+            self.NNP_emblist  = tm['NNP']['embeddings']
 
         if 'PBC_box' in tm:
             self.PBC = True
@@ -183,11 +194,16 @@ class Control:    ### structure to group all simulation parameter
                     self.minimization_tolerance = tm['Minimization']['tolerance'] * unit.kilocalorie_per_mole
 
     def load_TorchMDyaml(self, yml):
+        if 'job' in yml:
+            self.job_type = yml['job']
+        if 'dcd_file' in yml:
+            self.infile_dcd = yml['dcd_file']
         self.infile_pdb   = yml['structure']
         self.Nstep        = yml['steps']
         self.Nstep_out    = yml['output_period']
         self.Nstep_log    = yml['save_period']
         self.Nstep_rst    = yml['save_period']
+        self.outfile_prefix  = yml['output']
         self.outfile_dcd  = yml['output'] + '.dcd'
         self.outfile_log  = yml['output'] + '.log'
         self.outfile_out  = yml['output'] + '.out'
