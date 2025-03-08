@@ -29,6 +29,7 @@ from control import Control
     import torch
     from openmmtorch import TorchForce
     from torchmdnet.models.model import load_model
+    from dcd import DcdFile
 """
 
 ################################################
@@ -65,6 +66,8 @@ def get_atom(res):
 #KELVIN_TO_KT = unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB / unit.kilocalorie_per_mole
 #print KELVIN_TO_KT
 FILENAME_XML_DEFAULT = 'rna_cg2.xml'
+u_A = unit.angstrom
+u_kcalmol = unit.kilocalorie_per_mole
 
 ################################################
 #          Parser
@@ -265,9 +268,9 @@ else:
             with stream:
                 for l in stream:
                     if l.startswith('ATOM  '):
-                        x = float(l[30:38]) * unit.angstrom
-                        y = float(l[38:46]) * unit.angstrom
-                        z = float(l[46:54]) * unit.angstrom
+                        x = float(l[30:38]) * u_A
+                        y = float(l[38:46]) * u_A
+                        z = float(l[46:54]) * u_A
                         positions.append([x,y,z])
 
     elif ctrl.infile_xyz is not None:
@@ -283,9 +286,9 @@ else:
                     if il < 2:
                         continue
                     lsp = l.split()
-                    x = float(lsp[1]) * unit.angstrom
-                    y = float(lsp[2]) * unit.angstrom
-                    z = float(lsp[3]) * unit.angstrom
+                    x = float(lsp[1]) * u_A
+                    y = float(lsp[2]) * u_A
+                    z = float(lsp[3]) * u_A
                     positions.append([x,y,z])
     else:
         print("Error: either PDB or XYZ is required for the initial structure.")
@@ -354,19 +357,19 @@ if ctrl.ele:
         JOUL2KCAL_MOL = 1.0/4184.0 * N_AVO  # (J -> kcal/mol)
         Tc = T/unit.kelvin - 273.15
         diele = 87.740 - 0.4008*Tc + 9.398e-4*Tc**2 - 1.410e-6*Tc**3
-        lb = ELEC**2 / (4.0*pi*EPS0*diele*BOLTZ_J*T/unit.kelvin) * 1.0e10 * unit.angstrom
+        lb = ELEC**2 / (4.0*pi*EPS0*diele*BOLTZ_J*T/unit.kelvin) * 1.0e10 * u_A
         Zp = - lp / lb
         lambdaD  = 1.0e10 * sqrt( (1.0e-3 * EPS0 * diele * BOLTZ_J)
-                 / (2.0 * N_AVO * ELEC**2)  ) * sqrt(T/unit.kelvin / C) * unit.angstrom
+                 / (2.0 * N_AVO * ELEC**2)  ) * sqrt(T/unit.kelvin / C) * u_A
         if cut_type == 1:
-            cutoff = cut_factor * unit.angstrom
+            cutoff = cut_factor * u_A
         elif cut_type == 2:
             cutoff = cut_factor * lambdaD
         else:
             print("Error: Unknown cutoff_type for Electrostatic.")
             sys.exit(2)
         kappa = 1.0 / lambdaD
-        scale = JOUL2KCAL_MOL * 1.0e10 * ELEC**2 / (4.0 * pi * EPS0 * diele) * unit.kilocalorie_per_mole * unit.angstrom
+        scale = JOUL2KCAL_MOL * 1.0e10 * ELEC**2 / (4.0 * pi * EPS0 * diele) * u_kcalmol * u_A
         print(f"    Debye-Huckel electrostatics:")
         print(f"        Ionic strength: {C} M")
         print(f"        Temperature: {T}")
@@ -395,6 +398,7 @@ print("Constructing forces:")
 system = forcefield.createSystem(topology)
 
 totalforcegroup = 0
+### Avoid use of default forcegroup = 0 as CMMotionRemove is already set with forcegroup = 0.
 forcegroup = {}
 groupnames = []
 
@@ -434,7 +438,7 @@ if ff.angle_ReB:
     #ReB_energy_function = '0.5 * ReB_k * (cos(theta) - cos_ReB_a0)^2 / (sin(theta)^2)'
     ReB_energy_function = '0.5 * ReB_k * (cos(theta) - cos_ReB_a0)^2 / (1.0 - cos(theta)^2)'
 
-    cos_0 = cos(ff.angle_a0 / unit.radian)
+    cos_0 = cos(ff.angle_a0.value_in_unit(unit.radian))
     ReBforce = omm.CustomAngleForce(ReB_energy_function)
     ReBforce.addGlobalParameter("ReB_k",      ff.angle_k)
     ReBforce.addGlobalParameter("cos_ReB_a0", cos_0)
@@ -487,10 +491,11 @@ if ff.dihexp:
     system.addForce(dihedralforce)
 
 ########## Base pair
+print ('ff.bp', ff.bp)
+print ('ctrl.BP_model', ctrl.BP_model)
 if ff.bp and ctrl.BP_model > 0:
 
     """ For specific secondary structure """
-    """
     bps = []
     for l in open(ctrl.infile_bpcoef):
         lsp = l.split()
@@ -516,9 +521,9 @@ if ff.bp and ctrl.BP_model > 0:
     energy_function += "+ kp2*(1. + cos(dihedral(p6, p2, p1, p5) + phi2));"
     energy_function += "r = distance(p1, p2)"
 
-    cutoff_ddist_GC = sqrt(log(abs(10.0/0.01)) / ff.GC_bond_k.value_in_unit(unit.angstrom**(-2))) * unit.angstrom
-    cutoff_ddist_AU = sqrt(log(abs(10.0/0.01)) / ff.AU_bond_k.value_in_unit(unit.angstrom**(-2))) * unit.angstrom
-    cutoff_ddist_GU = sqrt(log(abs(10.0/0.01)) / ff.GU_bond_k.value_in_unit(unit.angstrom**(-2))) * unit.angstrom
+    cutoff_ddist_GC = sqrt(log(abs(10.0/0.01)) / ff.GC_bond_k.value_in_unit(u_A**(-2))) * u_A
+    cutoff_ddist_AU = sqrt(log(abs(10.0/0.01)) / ff.AU_bond_k.value_in_unit(u_A**(-2))) * u_A
+    cutoff_ddist_GU = sqrt(log(abs(10.0/0.01)) / ff.GU_bond_k.value_in_unit(u_A**(-2))) * u_A
     cutoff_GC = ff.GC_bond_r + cutoff_ddist_GC
     cutoff_AU = ff.AU_bond_r + cutoff_ddist_AU
     cutoff_GU = ff.GU_bond_r + cutoff_ddist_GU
@@ -573,7 +578,7 @@ if ff.bp and ctrl.BP_model > 0:
         CCBforce.setUsesPeriodicBoundaryConditions(ctrl.PBC)
         CCBforce.setForceGroup(totalforcegroup)
 
-        para_list = [u0 * unit.kilocalorie_per_mole,]
+        para_list = [u0 * u_kcalmol,]
         if p in ('GC', 'CG'):
             para_list += para_list_GC
         elif p in ('AU', 'UA'):
@@ -590,9 +595,9 @@ if ff.bp and ctrl.BP_model > 0:
 
     print(f"    {totalforcegroup:2d}:    BP")
     groupnames.append("Ubp")
-    """
 
     """ Make Hbforce for each pair """
+    """
     bps = {}
     bps_u0 = {}
     for l in open(ctrl.infile_bpcoef):
@@ -646,9 +651,9 @@ if ff.bp and ctrl.BP_model > 0:
     #energy_function += "theta_zero = 0.001;"
     #energy_function += f"pi = {pi}"
 
-    cutoff_ddist_GC = sqrt(log(abs(10.0/0.01)) / ff.GC_bond_k.value_in_unit(unit.angstrom**(-2))) * unit.angstrom
-    cutoff_ddist_AU = sqrt(log(abs(10.0/0.01)) / ff.AU_bond_k.value_in_unit(unit.angstrom**(-2))) * unit.angstrom
-    cutoff_ddist_GU = sqrt(log(abs(10.0/0.01)) / ff.GU_bond_k.value_in_unit(unit.angstrom**(-2))) * unit.angstrom
+    cutoff_ddist_GC = sqrt(log(abs(10.0/0.01)) / ff.GC_bond_k.value_in_unit(u_A**(-2))) * u_A
+    cutoff_ddist_AU = sqrt(log(abs(10.0/0.01)) / ff.AU_bond_k.value_in_unit(u_A**(-2))) * u_A
+    cutoff_ddist_GU = sqrt(log(abs(10.0/0.01)) / ff.GU_bond_k.value_in_unit(u_A**(-2))) * u_A
     cutoff_GC = ff.GC_bond_r + cutoff_ddist_GC
     cutoff_AU = ff.AU_bond_r + cutoff_ddist_AU
     cutoff_GU = ff.GU_bond_r + cutoff_ddist_GU
@@ -708,7 +713,7 @@ if ff.bp and ctrl.BP_model > 0:
                 Hbforce.setNonbondedMethod(omm.CustomHbondForce.CutoffNonPeriodic)
             Hbforce.setForceGroup(totalforcegroup)
     
-            para_list = [bps_u0[bp3] * unit.kilocalorie_per_mole,]
+            para_list = [bps_u0[bp3] * u_kcalmol,]
             if p in ('GC', 'CG'):
                 para_list += para_list_GC
             elif p in ('AU', 'UA'):
@@ -727,6 +732,7 @@ if ff.bp and ctrl.BP_model > 0:
 
     print(f"    {totalforcegroup:2d}:    BP")
     groupnames.append("Ubp")
+    """
 
 
     """ Grouping by three nucleotide combinations """
@@ -785,9 +791,9 @@ if ff.bp and ctrl.BP_model > 0:
     energy_function += "theta_zero = 0.001;"
     energy_function += f"pi = {pi}"
 
-    cutoff_ddist_GC = sqrt(log(abs(10.0/0.01)) / ff.GC_bond_k.value_in_unit(unit.angstrom**(-2))) * unit.angstrom
-    cutoff_ddist_AU = sqrt(log(abs(10.0/0.01)) / ff.AU_bond_k.value_in_unit(unit.angstrom**(-2))) * unit.angstrom
-    cutoff_ddist_GU = sqrt(log(abs(10.0/0.01)) / ff.GU_bond_k.value_in_unit(unit.angstrom**(-2))) * unit.angstrom
+    cutoff_ddist_GC = sqrt(log(abs(10.0/0.01)) / ff.GC_bond_k.value_in_unit(u_A**(-2))) * u_A
+    cutoff_ddist_AU = sqrt(log(abs(10.0/0.01)) / ff.AU_bond_k.value_in_unit(u_A**(-2))) * u_A
+    cutoff_ddist_GU = sqrt(log(abs(10.0/0.01)) / ff.GU_bond_k.value_in_unit(u_A**(-2))) * u_A
     cutoff_GC = ff.GC_bond_r + cutoff_ddist_GC
     cutoff_AU = ff.AU_bond_r + cutoff_ddist_AU
     cutoff_GU = ff.GU_bond_r + cutoff_ddist_GU
@@ -844,7 +850,7 @@ if ff.bp and ctrl.BP_model > 0:
         Hbforce.setNonbondedMethod(omm.CustomHbondForce.NoCutoff)
         Hbforce.setForceGroup(totalforcegroup)
 
-        para_list = [bps_u0[bp3] * unit.kilocalorie_per_mole,]
+        para_list = [bps_u0[bp3] * u_kcalmol,]
         if p in ('GC', 'CG'):
             para_list += para_list_GC
         elif p in ('AU', 'UA'):
@@ -1073,7 +1079,7 @@ class EnergyReporter(object):
     def __init__ (self, file, reportInterval, simulation=None, state=None):
         self._out = open(file, 'w')
         self._reportInterval = reportInterval
-        self._out.write('#     1:Step    2:T        3:Ekin        4:Epot')
+        self._out.write('#     1:Step    2:T        3:Ekin      4:Utotal')
                         #123456789012 123456 1234567890123 1234567890123'
         icol = 4
         if ff.bond:
@@ -1121,13 +1127,13 @@ class EnergyReporter(object):
         self._out.write(f"{simulation.currentStep:12d}")
         self._out.write(f" {ctrl.LD_temp/unit.kelvin:6.2f}")
         #state = simulation.context.getState(getEnergy=True)  # This shouldn't be needed
-        energy = state.getKineticEnergy() / unit.kilocalorie_per_mole
+        energy = state.getKineticEnergy().value_in_unit(u_kcalmol)
         self._out.write(f" {energy:13.6g}")
-        energy = state.getPotentialEnergy() / unit.kilocalorie_per_mole
+        energy = state.getPotentialEnergy().value_in_unit(u_kcalmol)
         self._out.write(f" {energy:13.6g}")
-        for i in range(totalforcegroup + 1):
-            state = simulation.context.getState(getEnergy=True, groups=2**i)
-            energy = state.getPotentialEnergy() / unit.kilocalorie_per_mole
+        for i in range(1, totalforcegroup + 1):
+            state = simulation.context.getState(getEnergy=True, groups={i})
+            energy = state.getPotentialEnergy().value_in_unit(u_kcalmol)
             self._out.write(f" {energy:13.6g}")
         self._out.write("\n")
         self._out.flush()
@@ -1176,7 +1182,7 @@ simulation = app.Simulation(topology, system, integrator, platform, properties)
 if ctrl.restart == False:
 
     if ctrl.PBC:
-        boxvector = diag(ctrl.PBC_size) * unit.angstrom
+        boxvector = diag(ctrl.PBC_size) * u_A
         simulation.context.setPeriodicBoxVectors(*boxvector)
 
     simulation.context.setPositions(positions)
@@ -1234,8 +1240,7 @@ if ctrl.job_type == 'MD':
     prodtime = time.time() - t0
     print("Simulation speed: % .2e steps/day" % (86400*ctrl.Nstep/(prodtime)))
 
-elif ctrl.job_type == 'DCD':
-    #simulation.reporters.append(EnergyReporter(ctrl.outfile_out, 1))
+elif ctrl.job_type in ('DCD', 'DCD_FORCE'):
 
     from dcd import DcdFile
     dcd = DcdFile(ctrl.infile_dcd)
@@ -1243,7 +1248,7 @@ elif ctrl.job_type == 'DCD':
     dcd.read_header()
 
     energy_file = open(ctrl.outfile_out, 'w')
-    energy_file.write('#    1:Frame        2:Epot')
+    energy_file.write('#    1:Frame      2:Utotal')
                       #123456789012 1234567890123'
     icol = 2
     if ff.bond:
@@ -1272,24 +1277,25 @@ elif ctrl.job_type == 'DCD':
         energy_file.write(' %13s' % f'{icol}:Unn')
     energy_file.write("\n")
 
-    force_files = {}
-    for s in ('Bond', 'Angle', 'ReB', 'DihExp', 'BP', 'Ele', 'WCA', 'NNP'):
-        if s not in forcegroup:
-            continue
-        if s == 'Bond':
-            force_files[s] = open(ctrl.outfile_prefix + f'_bond.out', 'w')
-        elif s in ('Angle', 'ReB'):
-            force_files[s] = open(ctrl.outfile_prefix + f'_angl.out', 'w')
-        elif s in ('DihExp', ):
-            force_files[s] = open(ctrl.outfile_prefix + f'_dihe.out', 'w')
-        elif s  == 'BP':
-            force_files[s] = open(ctrl.outfile_prefix + f'_bp.out', 'w')
-        elif s  == 'Ele':
-            force_files[s] = open(ctrl.outfile_prefix + f'_bp.out', 'w')
-        elif s  == 'WCA':
-            force_files[s] = open(ctrl.outfile_prefix + f'_exv.out', 'w')
-        elif s  == 'NNP':
-            force_files[s] = open(ctrl.outfile_prefix + f'_nn.out', 'w')
+    if ctrl.job_type == 'DCD_FORCE':
+        force_files = {}
+        for s in ('Bond', 'Angle', 'ReB', 'DihExp', 'BP', 'WCA', 'Ele', 'NNP'):
+            if s not in forcegroup:
+                continue
+            if s == 'Bond':
+                force_files[s] = open(ctrl.outfile_prefix + f'_bond.out', 'w')
+            elif s in ('Angle', 'ReB'):
+                force_files[s] = open(ctrl.outfile_prefix + f'_angl.out', 'w')
+            elif s in ('DihExp', ):
+                force_files[s] = open(ctrl.outfile_prefix + f'_dihe.out', 'w')
+            elif s  == 'BP':
+                force_files[s] = open(ctrl.outfile_prefix + f'_bp.out', 'w')
+            elif s  == 'Ele':
+                force_files[s] = open(ctrl.outfile_prefix + f'_bp.out', 'w')
+            elif s  == 'WCA':
+                force_files[s] = open(ctrl.outfile_prefix + f'_exv.out', 'w')
+            elif s  == 'NNP':
+                force_files[s] = open(ctrl.outfile_prefix + f'_nn.out', 'w')
 
     iframe = 0
     while dcd.has_more_data():
@@ -1298,26 +1304,32 @@ elif ctrl.job_type == 'DCD':
         simulation.context.setPositions(positions)
 
         energies = {}
-        for s in ('Bond', 'Angle', 'ReB', 'DihExp', 'BP', 'Ele', 'WCA', 'NNP'):
+        for s in ('Bond', 'Angle', 'ReB', 'DihExp', 'BP', 'WCA', 'Ele', 'NNP'):
             if s not in forcegroup:
                 continue
-            #print(s)
+
             i = forcegroup[s]
             #print(system.getForce(i).getName())
-            state = simulation.context.getState(getEnergy=True, getForces=True, groups={i})
-            energies[s] = state.getPotentialEnergy() / unit.kilocalorie_per_mole
-            forces = state.getForces()
-            for force in forces:
-                x = force[0].value_in_unit(unit.kilocalorie_per_mole/unit.angstrom)
-                y = force[1].value_in_unit(unit.kilocalorie_per_mole/unit.angstrom)
-                z = force[2].value_in_unit(unit.kilocalorie_per_mole/unit.angstrom)
-                force_files[s].write(f' {x} {y} {z}')
-            force_files[s].write('\n')
+
+            if ctrl.job_type == 'DCD':
+                state = simulation.context.getState(getEnergy=True, groups={i})
+            elif ctrl.job_type == 'DCD_FORCE':
+                state = simulation.context.getState(getEnergy=True, getForces=True, groups={i})
+
+            energies[s] = state.getPotentialEnergy().value_in_unit(u_kcalmol)
+
+            if ctrl.job_type == 'DCD_FORCE':
+                forces = state.getForces()
+                for force in forces:
+                    x = force[0].value_in_unit(u_kcalmol/u_A)
+                    y = force[1].value_in_unit(u_kcalmol/u_A)
+                    z = force[2].value_in_unit(u_kcalmol/u_A)
+                    force_files[s].write(f' {x:10.4e} {y:10.4e} {z:10.4e}')
+                force_files[s].write('\n')
 
         energy_file.write(f"{iframe:12d}")
-        energy = sum(energies.values())
-        energy_file.write(f" {energy:13.6g}")
-        for s in ('Bond', 'Angle', 'ReB', 'DihExp', 'BP', 'Ele', 'WCA', 'NNP'):
+        energy_file.write(f" {sum(energies.values()):13.6g}")  # Utotal
+        for s in ('Bond', 'Angle', 'ReB', 'DihExp', 'BP', 'WCA', 'Ele', 'NNP'):
             if s not in forcegroup:
                 continue
             energy_file.write(f" {energies[s]:13.6g}")
@@ -1326,20 +1338,7 @@ elif ctrl.job_type == 'DCD':
 
     energy_file.close()
 
-    for f in force_files.values():
-        f.close()
+    if ctrl.job_type == 'DCD_FORCE':
+        for f in force_files.values():
+            f.close()
 
-#    def report(self, simulation, state):
-#        energy = []
-#        self._out.write(f"{simulation.currentStep:12d}")
-#        self._out.write(f" {ctrl.LD_temp/unit.kelvin:6.2f}")
-#        #state = simulation.context.getState(getEnergy=True)  # This shouldn't be needed
-#        energy = state.getKineticEnergy() / unit.kilocalorie_per_mole
-#        self._out.write(f" {energy:13.6g}")
-#        energy = state.getPotentialEnergy() / unit.kilocalorie_per_mole
-#        self._out.write(f" {energy:13.6g}")
-#        for i in range(totalforcegroup + 1):
-#            state = simulation.context.getState(getEnergy=True, groups=2**i)
-#            energy = state.getPotentialEnergy() / unit.kilocalorie_per_mole
-#            self._out.write(f" {energy:13.6g}")
-#        self._out.write("\n")

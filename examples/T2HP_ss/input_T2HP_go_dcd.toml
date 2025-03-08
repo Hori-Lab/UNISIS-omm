@@ -1,7 +1,7 @@
 title = "sis input"
 
 [Job]
-type = "MD"
+type = "DCD"
 
 [Files]
       [Files.In]
@@ -10,6 +10,7 @@ type = "MD"
       pdb_ini = "T2HP_folded.pdb"
       bpseq = "T2HP.bpseq"
       bpcoef = "test_T2HP_go.bpcoef"
+      dcd = "./run1/md.dcd"
 
       [Files.Out]
       types = ["bp", "bpe", "bpall", "bpcoef"]

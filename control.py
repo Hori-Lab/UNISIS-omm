@@ -153,7 +153,7 @@ class Control:    ### structure to group all simulation parameter
 
         self.LD_seed      = tm['Condition']['rng_seed']
 
-        if 'BP' in tm:
+        if 'Basepair' in tm:
             self.BP_model = tm['Basepair']['model']
             self.BP_min_loop = tm['Basepair']['min_loop']
             #self.BP_nstep_MC = tm['Basepair']['nstep_MC']
