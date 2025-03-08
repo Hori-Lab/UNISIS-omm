@@ -1,3 +1,7 @@
+job: MD              # MD simulation (default).
+#job: DCD            # From existing DCD, calculate enegy.
+#job: DCD_FORCE      # From existing DCD, calculate enegy and force.
+#dcd_file: ./run1/md.dcd      # Path to DCD file. Required in DCD and DCD_FORCE mode.
 forcefield: prior_force_field.yaml        # ignored
 forceterms:                               # ignored
 - bonds                                   # ignored

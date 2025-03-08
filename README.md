@@ -103,3 +103,30 @@ sis-torch.py --tmyaml simulate.yaml \
 ***Important***  
 If you restart the simulation in the same directory using the same input file, existing output files such as `md.out` and `md.dcd` from the previous run will be overwritten, i.e. you will **lose the data!** Therefore you must either change the prefix of the output filename or move previous results to another directory.
 
+## DCD and DCD_FORCE modes
+
+Use `DCD` or `DCD_FORCE` mode to re-calculate energy and force from existing DCD file.
+
+You just need to add the following two lines to the YAML input file.
+
+(DCD mode)
+
+```
+job: DCD
+dcd_file: ./run1/md.dcd
+```
+
+(DCD_FORCE mode)
+
+```
+job: DCD_FORCE
+dcd_file: ./run1/md.dcd
+```
+
+***Important***  
+If you run DCD/DCD_FORCE mode in the same directory using the same input file, existing output file `md.out` will be overwritten, i.e. you will **lose the data!** Therefore you must either change the prefix of the output filename or move previous results to another directory.
+
+In DCD mode, only energies are calculated and output `PREFIX.out` file, where `PREFIX` is specified as `output` in the YAML input file. In DCD_FORCE mode, energies and forces are calculated and forces will be writtein in separate files.
+
+
+
