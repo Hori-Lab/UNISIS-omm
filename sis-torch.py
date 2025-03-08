@@ -113,7 +113,7 @@ except:
 print('')
 
 print('Execution:')
-print('    Time: ' + str(datetime.now()) + ' (UTC: ' + str(datetime.utcnow()) + ')')
+print('    Time: ' + datetime.now().astimezone().isoformat())
 print('    Host: ' + os.uname().nodename)
 print('    OS: ' + os.uname().version)
 print('    Python: ' + sys.version)
@@ -149,8 +149,18 @@ if args.tmyaml:
     ctrl.load_TorchMDyaml(tmyaml_input)
 
 else:
-    import toml
-    with open(args.input) as stream:
+    if sys.version_info >= (3, 11):
+        # tomllib is available as standard for python >= 3.11.
+        import tomllib as toml
+        toml_mode = "rb"
+    else:
+        # otherwise, toml package is needed.
+        try:
+            import toml
+            toml_mode = "r"
+        except ImportError:
+            raise ImportError("For Python 3.10 or earlier, please install toml by pip/mamba/conda install toml.")
+    with open(args.input, mode=toml_mode) as stream:
         try:
             toml_input = toml.load(stream)
         except:
@@ -404,19 +414,25 @@ groupnames = []
 
 ########## Bond
 if ff.bond:
+    totalforcegroup += 1
+    forcegroup['Bond'] = totalforcegroup
+    print(f"    {totalforcegroup:2d}:    Bond")
+    groupnames.append("Ubond")
+
     bondforce = omm.HarmonicBondForce()
     for bond in topology.bonds():
         bondforce.addBond(bond[0].index, bond[1].index, ff.bond_r0, ff.bond_k)
 
-    totalforcegroup += 1
-    forcegroup['Bond'] = totalforcegroup
     bondforce.setForceGroup(totalforcegroup)
-    print(f"    {totalforcegroup:2d}:    Bond")
-    groupnames.append("Ubond")
     system.addForce(bondforce)
 
 ########## Angle
 if ff.angle:
+    totalforcegroup += 1
+    forcegroup['Angle'] = totalforcegroup
+    print(f"    {totalforcegroup:2d}:    Angle")
+    groupnames.append("Uangl")
+
     angleforce = omm.HarmonicAngleForce()
 
     for chain in topology.chains():
@@ -426,15 +442,16 @@ if ff.angle:
 
             angleforce.addAngle(prev.index, item.index, nxt.index, ff.angle_a0, ff.angle_k)
 
-    totalforcegroup += 1
-    forcegroup['Angle'] = totalforcegroup
     angleforce.setForceGroup(totalforcegroup)
-    print(f"    {totalforcegroup:2d}:    Angle")
-    groupnames.append("Uangl")
     system.addForce(angleforce)
 
 ########## Restricted Bending (ReB)
 if ff.angle_ReB:
+    totalforcegroup += 1
+    forcegroup['ReB'] = totalforcegroup
+    print(f"    {totalforcegroup:2d}:    Angle ReB")
+    groupnames.append("Uangl")
+
     #ReB_energy_function = '0.5 * ReB_k * (cos(theta) - cos_ReB_a0)^2 / (sin(theta)^2)'
     ReB_energy_function = '0.5 * ReB_k * (cos(theta) - cos_ReB_a0)^2 / (1.0 - cos(theta)^2)'
 
@@ -453,15 +470,16 @@ if ff.angle_ReB:
             #ReBforce.addAngle(prev.index, item.index, nxt.index, [ReB_k, cos_ReB_a0])
             ReBforce.addAngle(prev.index, item.index, nxt.index)
 
-    totalforcegroup += 1
-    forcegroup['ReB'] = totalforcegroup
     ReBforce.setForceGroup(totalforcegroup)
-    print(f"    {totalforcegroup:2d}:    Angle ReB")
-    groupnames.append("Uangl")
     system.addForce(ReBforce)
 
 ########## Dihedral (exponential)
 if ff.dihexp:
+    totalforcegroup += 1
+    forcegroup['DihExp'] = totalforcegroup
+    print(f"    {totalforcegroup:2d}:    Dihexp")
+    groupnames.append("Udih")
+
     dihedral_energy_function = '-dihexp_k * exp(-0.5 * dihexp_w * (theta - dihexp_p0)^2)'
     # This is not strictly correct when theta is close to -pi (theta is defined in [-pi, pi]), 
     # but the error is negligible because dihexp_p0 is around zero (~0.267), far from pi,
@@ -483,17 +501,16 @@ if ff.dihexp:
             #dihedralforce.addTorsion(a.index, b.index, c.index, d.index,
             #                           [dihexp_k, dihexp_w, dihexp_p0])
 
-    totalforcegroup += 1
-    forcegroup['DihExp'] = totalforcegroup
     dihedralforce.setForceGroup(totalforcegroup)
-    print(f"    {totalforcegroup:2d}:    Dihexp")
-    groupnames.append("Udih")
     system.addForce(dihedralforce)
 
 ########## Base pair
-print ('ff.bp', ff.bp)
-print ('ctrl.BP_model', ctrl.BP_model)
 if ff.bp and ctrl.BP_model > 0:
+
+    totalforcegroup += 1
+    forcegroup['BP'] = totalforcegroup
+    print(f"    {totalforcegroup:2d}:    BP")
+    groupnames.append("Ubp")
 
     """ For specific secondary structure """
     bps = []
@@ -506,8 +523,6 @@ if ff.bp and ctrl.BP_model > 0:
         u0 = float(lsp[4])
         bps.append((imp, jmp, imp3, jmp3, u0))
 
-    totalforcegroup += 1
-    forcegroup['BP'] = totalforcegroup
     #energy_function = "step(-penalty) * Ubp0 * exp(penalty);"
     energy_function = "select(step(dcut - abs(r-r0)), Ubp0 * exp(-penalty), 0);"
     #energy_function = "select(step(dcut - abs(r-r0)), select(step(penalty), Ubp0 * exp(-penalty), 0), 0);"
@@ -524,15 +539,15 @@ if ff.bp and ctrl.BP_model > 0:
     cutoff_ddist_GC = sqrt(log(abs(10.0/0.01)) / ff.GC_bond_k.value_in_unit(u_A**(-2))) * u_A
     cutoff_ddist_AU = sqrt(log(abs(10.0/0.01)) / ff.AU_bond_k.value_in_unit(u_A**(-2))) * u_A
     cutoff_ddist_GU = sqrt(log(abs(10.0/0.01)) / ff.GU_bond_k.value_in_unit(u_A**(-2))) * u_A
-    cutoff_GC = ff.GC_bond_r + cutoff_ddist_GC
-    cutoff_AU = ff.AU_bond_r + cutoff_ddist_AU
-    cutoff_GU = ff.GU_bond_r + cutoff_ddist_GU
-    print('cutoff_ddist_GC', cutoff_ddist_GC)
-    print('cutoff_ddist_AU', cutoff_ddist_AU)
-    print('cutoff_ddist_GU', cutoff_ddist_GU)
-    print('cutoff_GC', cutoff_GC)
-    print('cutoff_AU', cutoff_AU)
-    print('cutoff_GU', cutoff_GU)
+    #cutoff_GC = ff.GC_bond_r + cutoff_ddist_GC
+    #cutoff_AU = ff.AU_bond_r + cutoff_ddist_AU
+    #cutoff_GU = ff.GU_bond_r + cutoff_ddist_GU
+    #print('           - cutoff_ddist_GC', cutoff_ddist_GC)
+    #print('           - cutoff_ddist_AU', cutoff_ddist_AU)
+    #print('           - cutoff_ddist_GU', cutoff_ddist_GU)
+    #print('           - cutoff_GC', cutoff_GC)
+    #print('           - cutoff_AU', cutoff_AU)
+    #print('           - cutoff_GU', cutoff_GU)
     para_list_GC = [cutoff_ddist_GC, ff.GC_bond_k, ff.GC_bond_r,
                     ff.GC_angl_k1, ff.GC_angl_k2, ff.GC_angl_k3, ff.GC_angl_k4,
                     ff.GC_angl_theta1, ff.GC_angl_theta2, ff.GC_angl_theta3, ff.GC_angl_theta4,
@@ -547,7 +562,6 @@ if ff.bp and ctrl.BP_model > 0:
                     ff.GU_dihd_k1, ff.GU_dihd_k2, ff.GU_dihd_phi1, ff.GU_dihd_phi2]
 
     for imp, jmp, imp3, jmp3, u0 in bps:
-        #print (bp3, len(bps_list))
         p = imp3[1] + jmp3[1]
         i = imp - 1
         j = jmp - 1
@@ -593,8 +607,6 @@ if ff.bp and ctrl.BP_model > 0:
 
         system.addForce(CCBforce)
 
-    print(f"    {totalforcegroup:2d}:    BP")
-    groupnames.append("Ubp")
 
     """ Make Hbforce for each pair """
     """
@@ -621,8 +633,6 @@ if ff.bp and ctrl.BP_model > 0:
     #print ('len(bps)', len(bps))
     #print ('len(bps_u0)', len(bps_u0))
 
-    totalforcegroup += 1
-    forcegroup['BP'] = totalforcegroup
     #energy_function = "step(-penalty) * Ubp0 * exp(penalty);"
     energy_function = "select(step(dcut - abs(r-r0)), Ubp0 * exp(-penalty), 0);"
     #energy_function = "select(step(dcut - abs(r-r0)), select(step(penalty), Ubp0 * exp(-penalty), 0), 0);"
@@ -729,9 +739,6 @@ if ff.bp and ctrl.BP_model > 0:
             Hbforce.addDonor   (j, j-1, j+1, para_list)
     
             system.addForce(Hbforce)
-
-    print(f"    {totalforcegroup:2d}:    BP")
-    groupnames.append("Ubp")
     """
 
 
@@ -761,8 +768,6 @@ if ff.bp and ctrl.BP_model > 0:
     #print ('len(bps)', len(bps))
     #print ('len(bps_u0)', len(bps_u0))
 
-    totalforcegroup += 1
-    forcegroup['BP'] = totalforcegroup
     #energy_function = "step(-penalty) * Ubp0 * exp(penalty);"
     #energy_function = "select(step(dcut - abs(r-r0)), Ubp0 * exp(-penalty), 0);"
     energy_function = "select(max(0, dcut - abs(r-r0)), select(step(penalty), Ubp0 * exp(-penalty), 0), 0);"
@@ -880,12 +885,15 @@ if ff.bp and ctrl.BP_model > 0:
 
         system.addForce(Hbforce)
 
-    print(f"    {totalforcegroup:2d}:    BP")
-    groupnames.append("Ubp")
     """
 
 ########## WCA
 if ff.wca:
+    totalforcegroup += 1
+    forcegroup['WCA'] = totalforcegroup
+    print(f"    {totalforcegroup:2d}:    WCA")
+    groupnames.append("Uwca")
+
     #energy_function =  'step(sig-r) * ep * ((R6 - 2)*R6 + 1);'
     #energy_function =  'WCAflag1*WCAflag2*step(sig-r) * ep * ((R6 - 2)*R6 + 1);'
     energy_function =  'select(WCAflag1*WCAflag2*step(sig-r), ep * ((R6 - 2)*R6 + 1), 0);'
@@ -917,11 +925,7 @@ if ff.wca:
                 WCAforce.addExclusion(atm_index(prev), atm_index(nxt))
 
     WCAforce.setCutoffDistance(ff.wca_sigma)
-    totalforcegroup += 1
-    forcegroup['WCA'] = totalforcegroup
     WCAforce.setForceGroup(totalforcegroup)
-    print(f"    {totalforcegroup:2d}:    WCA")
-    groupnames.append("Uwca")
     if ctrl.PBC:
         WCAforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffPeriodic)
     else:
@@ -930,6 +934,11 @@ if ff.wca:
 
 ########## Debye-Huckel
 if ctrl.ele:
+    totalforcegroup += 1
+    forcegroup['Ele'] = totalforcegroup
+    print(f"    {totalforcegroup:2d}:    Ele")
+    groupnames.append("Uele")
+
     DHforce = omm.CustomNonbondedForce("DHscale*Zp1*Zp2*exp(-kappa*r)/r")
     DHforce.addGlobalParameter("kappa", ele_kappa)
     DHforce.addGlobalParameter("DHscale", ele_scale)
@@ -956,11 +965,7 @@ if ctrl.ele:
                 DHforce.addExclusion(atm_index(prev), atm_index(nxt))
 
     DHforce.setCutoffDistance(ele_cutoff)
-    totalforcegroup += 1
-    forcegroup['Ele'] = totalforcegroup
     DHforce.setForceGroup(totalforcegroup)
-    print(f"    {totalforcegroup:2d}:    Ele")
-    groupnames.append("Uele")
     if ctrl.PBC:
         DHforce.setNonbondedMethod(omm.CustomNonbondedForce.CutoffPeriodic)
     else:
@@ -970,7 +975,13 @@ if ctrl.ele:
 ########## NNP
 dir_torchmdnet = None
 githash_torchmdnet = None
+
 if ctrl.use_NNP:
+    totalforcegroup += 1
+    forcegroup['NNP'] = totalforcegroup
+    groupnames.append("Unn")
+    print(f"    {totalforcegroup:2d}:    NNP")
+
     """
     This section is to run OpenMM-Torch for a machine learning potential trained by TorchMD-Net.
     references:
@@ -1017,7 +1028,6 @@ if ctrl.use_NNP:
                 else:
                     self.embeddings = embeddings
                 #self.batch = torch.arange(1).repeat_interleave(embeddings.size(0)).cuda()
-                #self.embeddings = embeddings
                 #self.batch = torch.arange(1).repeat_interleave(embeddings.size(0))
                 self.batch = None
                 self.box = None
@@ -1056,11 +1066,7 @@ if ctrl.use_NNP:
     torch_force = TorchForce(module)
     if ctrl.NNP_modelforce:
         torch_force.setOutputsForces(True)
-    totalforcegroup += 1
-    forcegroup['NNP'] = totalforcegroup
     torch_force.setForceGroup(totalforcegroup)
-    print(f"    {totalforcegroup:2d}:    NNP")
-    groupnames.append("Unn")
     system.addForce(torch_force)
 
 print('')
