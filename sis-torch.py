@@ -1206,10 +1206,9 @@ if ctrl.restart == False:
         #state = simulation.context.getState(getPositions=True)
         #app.PDBFile.writeFile(topology, state.getPositions(), open("after_minimize.pdb", "w"), keepIds=True)
 
-    if not ctrl.use_NNP:
+    if ctrl.job_type == 'MD':
         print(f"Setting the initial velocities, T = {ctrl.temp}, seed = {ctrl.velo_seed}\n")
         simulation.context.setVelocitiesToTemperature(ctrl.temp, ctrl.velo_seed)
-    ## This does not work if we use OpenMM-Torch (https://github.com/openmm/openmm-torch/issues/61)
 
 else:
     print("Loading checkpoint ...", ctrl.restart_file)
