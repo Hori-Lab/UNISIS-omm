@@ -1019,7 +1019,7 @@ if ctrl.use_NNP:
             def forward(self, positions):
                 positions_A = positions*10  # nm -> angstrom
                 energy, force = self.model(self.embeddings, positions_A, self.batch, self.box)
-                return energy*4.814, force*41.84
+                return energy*4.184, force*41.84
 
     else:
         class ForceModule(torch.nn.Module):
@@ -1042,7 +1042,7 @@ if ctrl.use_NNP:
             def forward(self, positions):
                 positions_A = positions*10  # nm -> angstrom
                 energy, _ = self.model(self.embeddings, positions_A, self.batch, self.box)
-                return energy*4.814
+                return energy*4.184
 
     embeddings = torch.tensor(ctrl.NNP_emblist, dtype=torch.long)
 
