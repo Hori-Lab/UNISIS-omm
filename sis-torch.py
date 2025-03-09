@@ -1025,14 +1025,15 @@ if ctrl.use_NNP:
 
                 if ctrl.device == 'CUDA':
                     self.embeddings = embeddings.cuda()
+                    #self.batch = torch.arange(1).repeat_interleave(embeddings.size(0)).cuda()
                 else:
                     self.embeddings = embeddings
-                #self.batch = torch.arange(1).repeat_interleave(embeddings.size(0)).cuda()
-                #self.batch = torch.arange(1).repeat_interleave(embeddings.size(0))
+                    #self.batch = torch.arange(1).repeat_interleave(embeddings.size(0))
                 self.batch = None
                 self.box = None
 
             def forward(self, positions):
+                #positions_A = positions.to(torch.float32)*10  # nm -> angstrom
                 positions_A = positions*10  # nm -> angstrom
                 energy, force = self.model(self.embeddings, positions_A, self.batch, self.box)
                 return energy*4.184, force*41.84
@@ -1056,6 +1057,7 @@ if ctrl.use_NNP:
                 self.box = None
 
             def forward(self, positions):
+                #positions_A = positions.to(torch.float32)*10  # nm -> angstrom
                 positions_A = positions*10  # nm -> angstrom
                 energy, _ = self.model(self.embeddings, positions_A, self.batch, self.box)
                 return energy*4.184
@@ -1184,6 +1186,16 @@ if ctrl.device == 'CUDA':
 #        print("DeviceIndex ", tomldata.GPU.CUDAdevice)
 
 simulation = app.Simulation(topology, system, integrator, platform, properties)
+
+platform = simulation.context.getPlatform()
+print(f'Platform selected: {platform.getName()}')
+print(f'Speed enhancement estimate: {platform.getSpeed()}')
+print(f'Properties:')
+for name in platform.getPropertyNames():
+    print(f'    {name}: {platform.getPropertyValue(simulation.context, name)}')
+print()
+sys.stdout.flush()
+sys.stderr.flush()
 
 if ctrl.restart == False:
 
