@@ -10,6 +10,7 @@ from simtk.unit import Quantity
 class Control:    ### structure to group all simulation parameter
     job_type: str = 'MD'
     device: str = ''
+    nthreads: int = None
     restart: bool = False
     restart_file: str = None
 
@@ -66,6 +67,7 @@ class Control:    ### structure to group all simulation parameter
         return (f"Control:\n"
               + f"    job_type: {self.job_type}\n"
               + f"    device: {self.device}\n"
+              + f"    nthreads: {self.nthreads}\n"
               + f"    restart: {self.restart}\n"
               + f"    restart_file: {self.restart_file}\n"
               + f"    xml: {self.xml}\n"

@@ -90,12 +90,16 @@ parser.add_argument('--cuda', action='store_true')
 #parser_device.add_argument('--cpu', action='store_true', default=False)
 #parser_device.add_argument('--cuda', action='store_true', default=False)
 
-#parser.add_argument('--platform', type=str, default=None,
-#                    help='Platform')
+parser.add_argument('--platform', type=str, default=None, help='Platform')
+parser.add_argument('--nthreads', type=int, default=None, help='Number of CPU threads')
 #parser.add_argument('--CUDAdevice', type=str, default=None,
 #                    help='CUDA device ID')
 
 args = parser.parse_args()
+
+if args.nthreads is not None:
+    if args.platform != 'CPU':
+        raise argparse.ArgumentTypeError('--nthreads option can be used only when --platform=CPU')
 
 ################################################
 #   Output the program and execution information
@@ -198,7 +202,13 @@ if args.ff is not None:
 if args.cuda:
     ctrl.device = 'CUDA'
 else:
-    ctrl.device = 'default'
+    if args.platform in ('CUDA', 'CPU', 'OpenCL'):
+        ctrl.device = args.platform
+    else:
+        ctrl.device = None
+
+if args.nthreads is not None:
+    ctrl.nthreads = args.nthreads
 
 print(ctrl)
 
@@ -1166,18 +1176,16 @@ integrator.setRandomNumberSeed(ctrl.LD_seed)
 platform = None
 properties = None
 
+if ctrl.device is not None:
+    platform = omm.Platform.getPlatformByName(ctrl.device)
+
 if ctrl.device == 'CUDA':
-    platform = omm.Platform.getPlatformByName('CUDA')
     #properties = {'Precision': 'double'}
     properties = {'Precision': 'single'}
 
-#if ctrl.device == 'CPU':
-#    platform = omm.Platform.getPlatformByName('CPU')
-#
-#
-#else:
-#    print("Error: unknown device.")
-#    sys.exit(2)
+elif ctrl.device == 'CPU':
+    if ctrl.nthreads is not None:
+        properties = {'Threads': f'{ctrl.nthreads}'}
 
 #properties = {}
 #properties["DeviceIndex"] = "0"
