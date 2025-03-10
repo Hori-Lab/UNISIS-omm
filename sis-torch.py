@@ -222,6 +222,7 @@ if tmyaml_input is not None:
     cgpdb = app.PDBFile(ctrl.infile_pdb)
     topology = cgpdb.getTopology()
     positions = cgpdb.getPositions()
+    nnt = len(positions)
 
 # Otherwise, sequence is read from FASTA, structure is read from PDB or XYZ
 # Note that any sequence information in PDB and XYZ will be ignored. Only 
@@ -977,6 +978,11 @@ dir_torchmdnet = None
 githash_torchmdnet = None
 
 if ctrl.use_NNP:
+
+    if len(ctrl.NNP_emblist) != nnt:
+        print('Error: The length of embeddings is not consistent with the sequence.')
+        sys.exit(2)
+
     totalforcegroup += 1
     forcegroup['NNP'] = totalforcegroup
     groupnames.append("Unn")
