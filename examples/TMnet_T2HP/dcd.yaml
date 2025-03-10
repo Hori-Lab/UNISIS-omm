@@ -1,0 +1,29 @@
+job: DCD_FORCE
+dcd_file: ./run1/md.dcd
+forcefield: prior_force_field.yaml        # ignored
+forceterms:                               # ignored
+- bonds                                   # ignored
+- repulsionrna                            # ignored
+- dihedrals_rna                           # ignored
+exclusions: ('bonds','angles')            # ignored
+timestep: 25                    # in fs
+langevin_gamma: 0.5             # in ps^(-1)
+langevin_temperature: 300
+temperature: 300                          # ignored
+log_dir: ./                               # ignored
+output: ./force
+output_period: 500
+save_period: 10000
+precision: double                         # ignored
+replicas: 32                              # ignored
+rfa: false                                # ignored
+seed: 10001                               # ignored
+steps: 10000
+topology: ''                              # ignored
+coordinates: ''                           # ignored
+structure: ./T2HP_unfolded.pdb
+device: 'cuda:0'                          # ignored
+external:
+  module: torchmdnet.calculators          # ignored
+  embeddings: [5, 2, 3, 4, 1, 4, 2, 1, 2, 2, 4, 3, 1, 4, 1, 3, 1, 4, 3, 2, 4, 3, 1, 4, 1, 2, 3, 1, 5]
+  file: ./epoch=213-val_loss=0.0335-test_loss=0.0690.ckpt

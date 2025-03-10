@@ -76,13 +76,15 @@ u_kcalmol = unit.kilocalorie_per_mole
 parser = argparse.ArgumentParser(description='OpenMM script for the SIS-RNA model',
                                  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-parser.add_argument('input', type=str, help='TOML format input file (use --tmyaml if this is TorchMD YAML)')
+parser.add_argument('input', type=str, help='TOML format input file (use --tmyaml if it is TorchMD YAML)')
 
 parser.add_argument('--tmyaml', action='store_true', help='Use this flag when the input is TorcMD format YAML file.')
 
 parser.add_argument('--ff', type=str, help='TOML format force-field file')
 parser.add_argument('--xml', type=str, default=None, help='XML file for topology information')
-parser.add_argument('-r','--restart', type=str, help='checkpoint file to restart')
+parser.add_argument('-x','--statexml', type=str, default=None, help='State XML file to restart')
+parser.add_argument('-c','--checkpoint', type=str, default=None, help='Checkpoint file to restart')
+parser.add_argument('-r','--restart', type=str, default=None, help='Checkpoint file to restart (deprecated)')
 
 parser.add_argument('--cuda', action='store_true')
 
@@ -97,9 +99,15 @@ parser.add_argument('--nthreads', type=int, default=None, help='Number of CPU th
 
 args = parser.parse_args()
 
-if args.nthreads is not None:
+if args.nthreads:
     if args.platform != 'CPU':
         raise argparse.ArgumentTypeError('--nthreads option can be used only when --platform=CPU')
+
+if args.checkpoint and args.restart:
+    raise argparse.ArgumentTypeError('Checkpoint and restart cannot be used together.')
+
+if (args.checkpoint or args.restart) and args.statexml:
+    raise argparse.ArgumentTypeError('State XML and checkpoint (restart) cannot be used together.')
 
 ################################################
 #   Output the program and execution information
@@ -177,16 +185,28 @@ else:
 ################################################
 #          Arguments override
 ################################################
-if args.restart is not None:
+if args.restart or args.statexml or args.checkpoint:
     if ctrl.job_type != 'MD':
         print("Error: Job type has to be 'MD' in the input file to use the restart file.")
         sys.exit(2)
 
     ctrl.restart = True
-    ctrl.restart_file = args.restart
-    if not os.path.isfile(ctrl.restart_file):
-        print("Error: could not find the restart file, " + ctrl.restart_file)
-        sys.exit(2)
+    if args.restart is not None:
+        ctrl.chk_file = args.restart
+    elif args.checkpoint is not None:
+        ctrl.chk_file = args.checkpoint
+    elif args.statexml is not None:
+        ctrl.xml_file = args.statexml
+
+    if ctrl.chk_file is not None:
+        if not os.path.isfile(ctrl.chk_file):
+            print("Error: could not find the checkpoint file, " + ctrl.chk_file)
+            sys.exit(2)
+
+    elif ctrl.xml_file is not None:
+        if not os.path.isfile(ctrl.xml_file):
+            print("Error: could not find the state XML file, " + ctrl.xml_file)
+            sys.exit(2)
 
 # Argument --xml overrides "xml" in the TOML input
 if args.xml is not None:
@@ -1211,8 +1231,18 @@ print()
 sys.stdout.flush()
 sys.stderr.flush()
 
-if ctrl.restart == False:
+if ctrl.restart:
+    assert (ctrl.chk_file is not None) or (ctrl.xml_file is not None)
 
+    if ctrl.chk_file is not None:
+        print(f'Loading checkpoint file: {ctrl.chk_file}\n')
+        simulation.loadCheckpoint(ctrl.chk_file)
+
+    elif ctrl.xml_file is not None:
+        print(f'Loading state file: {ctrl.xml_file}\n')
+        simulation.loadState(ctrl.xml_file)
+
+else:
     if ctrl.PBC:
         boxvector = diag(ctrl.PBC_size) * u_A
         simulation.context.setPeriodicBoxVectors(*boxvector)
@@ -1236,12 +1266,10 @@ if ctrl.restart == False:
         print(f"Setting the initial velocities, T = {ctrl.temp}, seed = {ctrl.velo_seed}\n")
         simulation.context.setVelocitiesToTemperature(ctrl.temp, ctrl.velo_seed)
 
-else:
-    print("Loading checkpoint ...", ctrl.restart_file)
-    simulation.loadCheckpoint(ctrl.restart_file)
-    print('')
 
-
+################################################
+#               MD
+################################################
 if ctrl.job_type == 'MD':
     simulation.reporters.append(app.StateDataReporter(ctrl.outfile_log, ctrl.Nstep_log, 
                                 step=True, potentialEnergy=True, temperature=True, 
@@ -1256,7 +1284,9 @@ if ctrl.job_type == 'MD':
         simulation.reporters.append(EnergyReporter(ctrl.outfile_out, ctrl.Nstep_out, simulation, state))
         simulation.reporters.append(MyDCDReporter(ctrl.outfile_dcd, ctrl.Nstep_out, simulation, state))
 
-    simulation.reporters.append(app.CheckpointReporter(ctrl.outfile_rst, ctrl.Nstep_rst))
+    simulation.reporters.append(app.CheckpointReporter(ctrl.outfile_chk, ctrl.Nstep_rst))
+    #simulation.reporters.append(app.CheckpointReporter(ctrl.outfile_xml, ctrl.Nstep_rst, writeState=True))
+    # State XML file will be written only at the end of the simulation.
 
     print('Simulation starting ...')
     sys.stdout.flush()
@@ -1271,6 +1301,12 @@ if ctrl.job_type == 'MD':
     prodtime = time.time() - t0
     print("Simulation speed: % .2e steps/day" % (86400*ctrl.Nstep/(prodtime)))
 
+    simulation.saveCheckpoint(ctrl.outfile_chk)
+    simulation.saveState(ctrl.outfile_xml)
+
+################################################
+#            DCD / DCD_FORCE
+################################################
 elif ctrl.job_type in ('DCD', 'DCD_FORCE'):
 
     from dcd import DcdFile

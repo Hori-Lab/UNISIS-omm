@@ -4,15 +4,16 @@ from simtk import unit
 from simtk.unit import Quantity
 
 ################################################
-#          Control object
+#          Control class
 ################################################
 @dataclass
-class Control:    ### structure to group all simulation parameter
-    job_type: str = 'MD'
+class Control:
+    job_type: str = 'MD'    # MD, DCD, DCD_FORCE
     device: str = ''
     nthreads: int = None
     restart: bool = False
-    restart_file: str = None
+    chk_file: str = None
+    xml_file: str = None
 
     xml:         str = None
     ff:          str = None
@@ -24,7 +25,8 @@ class Control:    ### structure to group all simulation parameter
     outfile_log: str = './md.log'
     outfile_out: str = './md.out'
     outfile_dcd: str = './md.dcd'
-    outfile_rst: str = './md.rst'
+    outfile_chk: str = './md.chk'
+    outfile_xml: str = './md.xml'
 
     Nstep: int        = 10
     Nstep_out:  int   = 1
@@ -69,7 +71,8 @@ class Control:    ### structure to group all simulation parameter
               + f"    device: {self.device}\n"
               + f"    nthreads: {self.nthreads}\n"
               + f"    restart: {self.restart}\n"
-              + f"    restart_file: {self.restart_file}\n"
+              + f"    chk_file: {self.chk_file}\n"
+              + f"    xml_file: {self.xml_file}\n"
               + f"    xml: {self.xml}\n"
               + f"    ff: {self.ff}\n"
               + f"    infile_pdb: {self.infile_pdb}\n"
@@ -79,7 +82,8 @@ class Control:    ### structure to group all simulation parameter
               + f"    outfile_log: {self.outfile_log}\n"
               + f"    outfile_out: {self.outfile_out}\n"
               + f"    outfile_dcd: {self.outfile_dcd}\n"
-              + f"    outfile_rst: {self.outfile_rst}\n"
+              + f"    outfile_chk: {self.outfile_chk}\n"
+              + f"    outfile_xml: {self.outfile_xml}\n"
               + f"    Nstep: {self.Nstep}\n"
               + f"    Nstep_out: {self.Nstep_out}\n"
               + f"    Nstep_log: {self.Nstep_log}\n"
@@ -133,7 +137,8 @@ class Control:    ### structure to group all simulation parameter
         self.outfile_dcd  = tm['Files']['Out']['prefix'] + '.dcd'
         self.outfile_log  = tm['Files']['Out']['prefix'] + '.log'
         self.outfile_out  = tm['Files']['Out']['prefix'] + '.out'
-        self.outfile_rst  = tm['Files']['Out']['prefix'] + '.rst'
+        self.outfile_chk  = tm['Files']['Out']['prefix'] + '.chk'
+        self.outfile_xml  = tm['Files']['Out']['prefix'] + '.xml'
 
         self.velo_seed    = tm['Condition']['rng_seed']
         self.temp         = tm['Condition']['tempK'] * unit.kelvin
@@ -209,7 +214,8 @@ class Control:    ### structure to group all simulation parameter
         self.outfile_dcd  = yml['output'] + '.dcd'
         self.outfile_log  = yml['output'] + '.log'
         self.outfile_out  = yml['output'] + '.out'
-        self.outfile_rst  = yml['output'] + '.rst'
+        self.outfile_chk  = yml['output'] + '.rst' # will be changed to chk
+        self.outfile_xml  = yml['output'] + '.xml'
         self.temp         = yml['temperature'] * unit.kelvin
         self.LD_temp      = yml['langevin_temperature'] * unit.kelvin
         self.LD_gamma     = yml['langevin_gamma'] / unit.picosecond
