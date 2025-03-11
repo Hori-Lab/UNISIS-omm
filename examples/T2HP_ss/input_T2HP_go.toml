@@ -23,11 +23,17 @@ type = "MD"
 integrator = "GJF-2GJ"
 dt_fs = 20.0
 nstep = 5000
+nstep_next = 3000
 nstep_save = 100
 nstep_save_rst = 500
 neighbor_list_margin = 10.0
 #viscosity_Pas = 0.00001
 friction = 0.5
+
+[Minimization]
+max_iteration = 10000
+tolerance = 0.01
+nstep_log = 100
 
 [Electrostatic]
 ionic_strength = 0.15

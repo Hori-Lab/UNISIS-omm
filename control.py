@@ -28,10 +28,11 @@ class Control:
     outfile_chk: str = './md.chk'
     outfile_xml: str = './md.xml'
 
-    Nstep: int        = 10
-    Nstep_out:  int   = 1
-    Nstep_log:  int   = 1000000
-    Nstep_rst:  int   = 1000000
+    Nstep:      int  = None
+    Nstep_next: int  = None
+    Nstep_out:  int  = 1
+    Nstep_log:  int  = 1000000
+    Nstep_rst:  int  = 1000000
 
     temp: Quantity     = field(default_factory=lambda: Quantity(300.0, unit.kelvin))
     velo_seed: int = 0
@@ -85,6 +86,7 @@ class Control:
               + f"    outfile_chk: {self.outfile_chk}\n"
               + f"    outfile_xml: {self.outfile_xml}\n"
               + f"    Nstep: {self.Nstep}\n"
+              + f"    Nstep_next: {self.Nstep_next}\n"
               + f"    Nstep_out: {self.Nstep_out}\n"
               + f"    Nstep_log: {self.Nstep_log}\n"
               + f"    Nstep_rst: {self.Nstep_rst}\n"
@@ -144,7 +146,13 @@ class Control:
         self.temp         = tm['Condition']['tempK'] * unit.kelvin
         self.LD_temp      = tm['Condition']['tempK'] * unit.kelvin
 
-        self.Nstep        = tm['MD']['nstep']
+        if 'nstep' in tm['MD']:
+            self.Nstep        = tm['MD']['nstep']
+        if 'nstep_next' in tm['MD']:
+            self.Nstep_next   = tm['MD']['nstep_next']
+        if self.Nstep is None and self.Nstep_next is None:
+            raise Exception('Erorr: nstep or nstep_next is required in the input file.')
+
         self.Nstep_out    = tm['MD']['nstep_save']
         if 'nstep_save_rst' in tm['MD']:
             self.Nstep_rst    = tm['MD']['nstep_save_rst']
@@ -206,7 +214,7 @@ class Control:
         if 'dcd_file' in yml:
             self.infile_dcd = yml['dcd_file']
         self.infile_pdb   = yml['structure']
-        self.Nstep        = yml['steps']
+        self.Nstep_next   = yml['steps']
         self.Nstep_out    = yml['output_period']
         self.Nstep_log    = yml['save_period']
         self.Nstep_rst    = yml['save_period']

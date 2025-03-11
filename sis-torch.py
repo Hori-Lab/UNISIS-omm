@@ -60,6 +60,9 @@ def get_atom(res):
     for atom in res.atoms():
         return atom
 
+# For timing
+t0 = time.time()
+
 ################################################
 #         Constants
 ################################################
@@ -1271,9 +1274,26 @@ else:
 #               MD
 ################################################
 if ctrl.job_type == 'MD':
+    print('Simulation starting ...')
+
+    # Only Nstep_next
+    if ctrl.Nstep is None:
+        nstep = ctrl.Nstep_next
+
+    # Only Nstep
+    elif ctrl.Nstep_next is None:
+        nstep = ctrl.Nstep - simulation.currentStep
+
+    # Both Nstep and Nstep_next
+    else:
+        if ctrl.Nstep < simulation.currentStep + ctrl.Nstep_next:
+            nstep = ctrl.Nstep - simulation.currentStep
+        else:
+            nstep = ctrl.Nstep_next
+
     simulation.reporters.append(app.StateDataReporter(ctrl.outfile_log, ctrl.Nstep_log, 
                                 step=True, potentialEnergy=True, temperature=True, 
-                                remainingTime=True, totalSteps=ctrl.Nstep, separator='  '))
+                                remainingTime=True, totalSteps=nstep, separator='  '))
 
     if ctrl.restart: # Not recording the initial state
         simulation.reporters.append(EnergyReporter(ctrl.outfile_out, ctrl.Nstep_out))
@@ -1288,18 +1308,22 @@ if ctrl.job_type == 'MD':
     #simulation.reporters.append(app.CheckpointReporter(ctrl.outfile_xml, ctrl.Nstep_rst, writeState=True))
     # State XML file will be written only at the end of the simulation.
 
-    print('Simulation starting ...')
+    print(f"    Current step: {simulation.currentStep}")
+    print(f"    Running for: {nstep}\n")
     sys.stdout.flush()
     sys.stderr.flush()
 
-    t0 = time.time()
-
-    simulation.step(ctrl.Nstep)
+    t1 = time.time()
+    simulation.step(nstep)
     #simulation.runForClockTime(time, checkpointFile=None, stateFile=None, checkpointInterval=None)
 
-    #simulation.saveState('checkpoint.xml')
-    prodtime = time.time() - t0
-    print("Simulation speed: % .2e steps/day" % (86400*ctrl.Nstep/(prodtime)))
+    t = time.time()
+    totaltime = t - t0
+    runtime = t - t1
+    print(f"Job summary:")
+    print(f"    Elapsed time: {totaltime:.1f} secs = {totaltime/3600:.2f} hrs")
+    print(f"    Run time: {runtime:.1f} secs = {runtime/3600:.2f} hrs")
+    print(f"    Speed: {86400*nstep/runtime:.2e} steps/day")
 
     simulation.saveCheckpoint(ctrl.outfile_chk)
     simulation.saveState(ctrl.outfile_xml)
