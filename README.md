@@ -1,4 +1,4 @@
-# OpenMM scripts to run SIS RNA simulations
+# OpenMM scripts to run UNISIS RNA simulations
 
 ## OpenMM environment
 
