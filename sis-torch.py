@@ -264,31 +264,52 @@ else:
     topology = app.Topology()
     positions = []
 
-    print('Reading requences from FASTA file, ', ctrl.fasta)
+    print('Reading sequences from FASTA file, ', ctrl.fasta)
     chain_names = []
-    chain_name_save = None
     seqs = []
     seq = ''
+    chain_name_save = None
+
     try:
-        stream = open(ctrl.fasta)
-    except:
-        print('Error: cannot open the FASTA file, ', ctrl.fasta)
-        sys.exit(2)
-    else:
-        with stream:
-            for l in stream:
-                if l.startswith('>'):
+        with open(ctrl.fasta, 'r') as stream:
+            for line_no, line in enumerate(stream, 1):
+                if line.startswith('>'):
                     if len(seq) > 0:
                         seqs.append(seq)
                         chain_names.append(chain_name_save)
                         seq = ''
-                    chain_name_save = l.strip()
+                    chain_name_save = line.strip()
                     continue
                 else:
-                    seq += l.strip()
+                    # Validate nucleotide sequence
+                    seq_line = line.strip().upper()
+                    if seq_line and not all(c in 'ACGUNDT' for c in seq_line):
+                        print(f'Error: Invalid nucleotide character found at line {line_no} in FASTA file')
+                        print(f'       Valid characters are: A, C, G, U, N, D, T')
+                        sys.exit(2)
+                    seq += seq_line
+
+            # Don't forget the last sequence
             if len(seq) > 0:
                 seqs.append(seq)
                 chain_names.append(chain_name_save)
+
+    except FileNotFoundError:
+        print(f'Error: cannot find the FASTA file: {ctrl.fasta}')
+        sys.exit(2)
+    except IOError as e:
+        print(f'Error: cannot read the FASTA file: {ctrl.fasta}')
+        print(f'       {e}')
+        sys.exit(2)
+
+    # Validation
+    if not seqs:
+        print('Error: No sequences found in FASTA file')
+        sys.exit(2)
+
+    if any(len(seq) == 0 for seq in seqs):
+        print('Error: Empty sequence found in FASTA file')
+        sys.exit(2)
 
     print_length = 80
     nnt = 0  # Number of the total nucleotides
@@ -304,36 +325,101 @@ else:
     if ctrl.infile_pdb is not None:
         print(f'Reading the initial structure from PDB file, {ctrl.infile_pdb}')
         try:
-            stream = open(ctrl.infile_pdb)
-        except:
-            print('Error: cannot open the PDB file, ', ctrl.infile_pdb)
+            with open(ctrl.infile_pdb, 'r') as stream:
+                atom_count = 0
+                for line_no, line in enumerate(stream, 1):
+                    if line.startswith('ATOM  '):
+                        try:
+                            # Ensure proper PDB format (columns 30-38, 38-46, 46-54)
+                            if len(line) < 54:
+                                print(f'Error: Invalid PDB format at line {line_no}')
+                                print(f'       Line too short for coordinate parsing')
+                                sys.exit(2)
+
+                            x_str = line[30:38].strip()
+                            y_str = line[38:46].strip()
+                            z_str = line[46:54].strip()
+
+                            if not x_str or not y_str or not z_str:
+                                print(f'Error: Missing coordinates at line {line_no} in PDB file')
+                                sys.exit(2)
+
+                            x = float(x_str) * u_A
+                            y = float(y_str) * u_A
+                            z = float(z_str) * u_A
+                            positions.append([x, y, z])
+                            atom_count += 1
+
+                        except ValueError as e:
+                            print(f'Error: Invalid coordinate value at line {line_no} in PDB file')
+                            print(f'       {e}')
+                            sys.exit(2)
+
+                print(f"    {atom_count} ATOM records processed from PDB file")
+
+        except FileNotFoundError:
+            print(f'Error: cannot find the PDB file: {ctrl.infile_pdb}')
             sys.exit(2)
-        else:
-            with stream:
-                for l in stream:
-                    if l.startswith('ATOM  '):
-                        x = float(l[30:38]) * u_A
-                        y = float(l[38:46]) * u_A
-                        z = float(l[46:54]) * u_A
-                        positions.append([x,y,z])
+        except IOError as e:
+            print(f'Error: cannot read the PDB file: {ctrl.infile_pdb}')
+            print(f'       {e}')
+            sys.exit(2)
 
     elif ctrl.infile_xyz is not None:
         print(f'Reading the initial structure from XYZ file, {ctrl.infile_xyz}')
         try:
-            stream = open(ctrl.infile_xyz)
-        except:
-            print('Error: cannot open the XYZ file, ', ctrl.infile_xyz)
-            sys.exit(2)
-        else:
-            with stream:
-                for il, l in enumerate(stream):
-                    if il < 2:
+            with open(ctrl.infile_xyz, 'r') as stream:
+                lines = stream.readlines()
+
+                if len(lines) < 2:
+                    print('Error: XYZ file must have at least 2 lines (number of atoms and comment)')
+                    sys.exit(2)
+
+                try:
+                    expected_atoms = int(lines[0].strip())
+                except ValueError:
+                    print('Error: First line of XYZ file must contain the number of atoms')
+                    sys.exit(2)
+
+                atom_count = 0
+                for line_no, line in enumerate(lines[2:], 3):  # Skip first two lines
+                    line = line.strip()
+                    if not line:
                         continue
-                    lsp = l.split()
-                    x = float(lsp[1]) * u_A
-                    y = float(lsp[2]) * u_A
-                    z = float(lsp[3]) * u_A
-                    positions.append([x,y,z])
+
+                    try:
+                        parts = line.split()
+                        if len(parts) < 4:
+                            print(f'Error: Invalid XYZ format at line {line_no}')
+                            print(f'       Expected: element x y z')
+                            sys.exit(2)
+
+                        element = parts[0]
+                        x = float(parts[1]) * u_A
+                        y = float(parts[2]) * u_A
+                        z = float(parts[3]) * u_A
+                        positions.append([x, y, z])
+                        atom_count += 1
+
+                    except (ValueError, IndexError) as e:
+                        print(f'Error: Invalid coordinate at line {line_no} in XYZ file')
+                        print(f'       {e}')
+                        sys.exit(2)
+
+                if atom_count != expected_atoms:
+                    print(f'Error: XYZ file inconsistency')
+                    print(f'       Expected {expected_atoms} atoms, found {atom_count}')
+                    sys.exit(2)
+
+                print(f"    {atom_count} atoms processed from XYZ file")
+
+        except FileNotFoundError:
+            print(f'Error: cannot find the XYZ file: {ctrl.infile_xyz}')
+            sys.exit(2)
+        except IOError as e:
+            print(f'Error: cannot read the XYZ file: {ctrl.infile_xyz}')
+            print(f'       {e}')
+            sys.exit(2)
     else:
         print("Error: either PDB or XYZ is required for the initial structure.")
         print("       Specify 'pdb_ini' or 'xyz_ini' in the input file.")
@@ -388,50 +474,102 @@ else:
 
 print(ff)
 
+def calculate_electrostatic_parameters(temperature, ionic_strength, length_per_charge, cutoff_type, cutoff_factor):
+    """
+    Calculate electrostatic parameters for Debye-Huckel model.
+
+    Parameters:
+    -----------
+    temperature : unit.Quantity (Kelvin)
+        Temperature
+    ionic_strength : float
+        Ionic strength in M
+    length_per_charge : float 
+        Length per charge in Angstrom
+    cutoff_type : int
+        1 for fixed cutoff, 2 for Debye-length based cutoff
+    cutoff_factor : float
+        Cutoff factor
+
+    Returns:
+    --------
+    tuple : (cutoff, scale, kappa, reduced_charge)
+        Calculated electrostatic parameters
+    """
+    # Physical constants
+    ELEC = 1.602176634e-19      # Elementary charge [C]
+    EPS0 = 8.8541878128e-12     # Electric constant [F/m]
+    BOLTZ_J = 1.380649e-23      # Boltzmann constant [J/K]
+    N_AVO = 6.02214076e23       # Avogadro constant [/mol]
+    JOUL2KCAL_MOL = 1.0 / 4184.0 * N_AVO  # (J -> kcal/mol)
+
+    # Input validation
+    T_value = temperature.value_in_unit(unit.kelvin)
+    if T_value <= 0:
+        raise ValueError(f"Temperature must be positive, got {T_value} K")
+    if ionic_strength <= 0:
+        raise ValueError(f"Ionic strength must be positive, got {ionic_strength} M")
+    if length_per_charge <= 0:
+        raise ValueError(f"Length per charge must be positive, got {length_per_charge} Å")
+    if cutoff_type not in [1, 2]:
+        raise ValueError(f"Cutoff type must be 1 or 2, got {cutoff_type}")
+    if cutoff_factor <= 0:
+        raise ValueError(f"Cutoff factor must be positive, got {cutoff_factor}")
+
+    # Calculate temperature-dependent dielectric constant for water
+    Tc = T_value - 273.15
+    if Tc < -10 or Tc > 100:
+        print(f"Warning: Temperature {Tc}°C is outside the typical range (-10°C to 100°C)")
+        print(f"         Dielectric constant calculation may be inaccurate")
+
+    diele = 87.740 - 0.40008 * Tc + 9.398e-4 * Tc**2 - 1.410e-6 * Tc**3
+
+    if diele <= 0:
+        raise ValueError(f"Calculated dielectric constant is non-positive: {diele}")
+
+    # Bjerrum length
+    lb = ELEC**2 / (4.0 * pi * EPS0 * diele * BOLTZ_J * T_value) * 1.0e10 * u_A
+
+    # Reduced charge
+    Zp = -length_per_charge / lb
+
+    # Debye length
+    lambdaD = 1.0e10 * sqrt((1.0e-3 * EPS0 * diele * BOLTZ_J) / 
+                           (2.0 * N_AVO * ELEC**2)) * sqrt(T_value / ionic_strength) * u_A
+
+    # Set cutoff distance
+    if cutoff_type == 1:
+        cutoff = cutoff_factor * u_A
+    elif cutoff_type == 2:
+        cutoff = cutoff_factor * lambdaD
+
+    # Screening parameter and energy scale
+    kappa = 1.0 / lambdaD
+    scale = JOUL2KCAL_MOL * 1.0e10 * ELEC**2 / (4.0 * pi * EPS0 * diele) * u_kcalmol * u_A
+
+    # Output information
+    print(f"    Debye-Huckel electrostatics:")
+    print(f"        Ionic strength: {ionic_strength} M")
+    print(f"        Temperature: {temperature}")
+    print(f"        Dielectric constant (T dependent): {diele:.2f}")
+    print(f"        Bjerrum length: {lb:.3f}")
+    print(f"        Reduced charge: {Zp:.3f}")
+    print(f"        Debye length (lambda_D): {lambdaD:.3f}")
+    print(f"        Cutoff: {cutoff:.3f}")
+    print(f"        Scale: {scale:.6e}")
+    print(f"        Screening parameter (kappa): {kappa:.6f} Å⁻¹")
+
+    return cutoff, scale, kappa, Zp
+
 if ctrl.ele:
-    def set_ele(T, C, lp, cut_type, cut_factor):
-        # Input: T, Temperature
-        #        C, Ionic strength
-        #        lp, Length per charge
-        # Output: cutoff, scale, kappa
-        ELEC    = 1.602176634e-19   # Elementary charge [C]
-        EPS0    = 8.8541878128e-12  # Electric constant [F/m]
-        BOLTZ_J = 1.380649e-23      # Boltzmann constant [J/K]
-        N_AVO   = 6.02214076e23     # Avogadro constant [/mol]
-        JOUL2KCAL_MOL = 1.0/4184.0 * N_AVO  # (J -> kcal/mol)
-        Tc = T/unit.kelvin - 273.15
-        diele = 87.740 - 0.4008*Tc + 9.398e-4*Tc**2 - 1.410e-6*Tc**3
-        lb = ELEC**2 / (4.0*pi*EPS0*diele*BOLTZ_J*T/unit.kelvin) * 1.0e10 * u_A
-        Zp = - lp / lb
-        lambdaD  = 1.0e10 * sqrt( (1.0e-3 * EPS0 * diele * BOLTZ_J)
-                 / (2.0 * N_AVO * ELEC**2)  ) * sqrt(T/unit.kelvin / C) * u_A
-        if cut_type == 1:
-            cutoff = cut_factor * u_A
-        elif cut_type == 2:
-            cutoff = cut_factor * lambdaD
-        else:
-            print("Error: Unknown cutoff_type for Electrostatic.")
-            sys.exit(2)
-        kappa = 1.0 / lambdaD
-        scale = JOUL2KCAL_MOL * 1.0e10 * ELEC**2 / (4.0 * pi * EPS0 * diele) * u_kcalmol * u_A
-        print(f"    Debye-Huckel electrostatics:")
-        print(f"        Ionic strength: {C} M")
-        print(f"        Temperature: {T}")
-        print(f"        Dielectric constant (T dependent): {diele}")
-        print(f"        Bjerrum length: {lb}")
-        print(f"        Reduced charge: {Zp}")
-        print(f"        lambda_D: {lambdaD}")
-        print(f"        Cutoff: {cutoff}")
-        print(f"        Scale: {scale}")
-        print(f"        kappa: {kappa}")
+    ele_cutoff, ele_scale, ele_kappa, ele_Zp = calculate_electrostatic_parameters(
+        ctrl.temp,                      # T
+        ctrl.ele_ionic_strength,        # C
+        ctrl.ele_length_per_charge,     # lp
+        ctrl.ele_cutoff_type,           # cut_type
+        ctrl.ele_cutoff_factor          # cut_factor
+    )
 
-        return cutoff, scale, kappa, Zp
-
-    ele_cutoff, ele_scale, ele_kappa, ele_Zp = set_ele(ctrl.temp,  # T
-                                                       ctrl.ele_ionic_strength,  # C
-                                                       ctrl.ele_length_per_charge, # lp
-                                                       ctrl.ele_cutoff_type,
-                                                       ctrl.ele_cutoff_factor)
 print('')
 
 
@@ -1012,8 +1150,10 @@ githash_torchmdnet = None
 
 if ctrl.use_NNP:
 
+    # Validate embeddings
     if len(ctrl.NNP_emblist) != nnt:
         print('Error: The length of embeddings is not consistent with the sequence.')
+        print(f'       Expected {nnt}, got {len(ctrl.NNP_emblist)}')
         sys.exit(2)
 
     totalforcegroup += 1
