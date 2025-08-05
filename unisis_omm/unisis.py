@@ -1449,7 +1449,7 @@ def main():
     ################################################
     elif ctrl.job_type in ('DCD', 'DCD_FORCE'):
 
-        from dcd import DcdFile
+        from unisis_omm.dcd import DcdFile
         dcd = DcdFile(ctrl.infile_dcd)
         dcd.open_to_read()
         dcd.read_header()
