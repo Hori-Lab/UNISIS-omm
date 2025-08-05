@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.scripts]
-unisis = "unisis_omm.unisis:main"
+unisis-omm = "unisis_omm.unisis:main"
 
 [project.optional-dependencies]
 ML = ["torch", "openmmtorch"]
