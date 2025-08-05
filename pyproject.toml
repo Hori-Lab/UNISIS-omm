@@ -15,6 +15,7 @@ requires-python = ">=3.8"
 dependencies = [
     "numpy",
     "openmm",
+    "toml ; python_version < '3.11'",
 ]
 
 [project.scripts]
