@@ -1,0 +1,15 @@
+title = "sis-NNP force field"
+
+[potential]
+    [potential.bond]
+        k = 15.0
+        r0 = 6.13
+
+    [potential.dihedral_exp]
+        k = 1.4
+        w = 3.0
+        phi0 = 0.267
+
+    [potential.wca]
+        sigma = 10.0
+        epsilon = 2.0
