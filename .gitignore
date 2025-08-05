@@ -2,3 +2,4 @@ __pycache__
 examples/**/out
 examples/**/err
 examples/**/md*
+*.egg-info/

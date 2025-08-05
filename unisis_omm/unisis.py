@@ -5,9 +5,6 @@ A part of the code was adopted from https://github.com/tienhungf91/RNA_llps
 """
 __author__ = "Naoto Hori"
 
-import sys
-print("sys.path =", sys.path)
-
 import os
 import sys
 import time
