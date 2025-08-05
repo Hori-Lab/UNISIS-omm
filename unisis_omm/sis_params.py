@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Dict
-from simtk.unit import Quantity, angstrom, kilocalorie_per_mole, radian
+from openmm.unit import Quantity, angstrom, kilocalorie_per_mole, radian
 
 @dataclass
 class SISForceField:
