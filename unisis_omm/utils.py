@@ -2,6 +2,8 @@
 #         Utility functions
 ################################################
 
+import itertools as it
+
 def prev_and_next(iterable):
     prevs, items, nexts = it.tee(iterable, 3)
     prevs = it.chain([None], prevs)

@@ -5,10 +5,12 @@ A part of the code was adopted from https://github.com/tienhungf91/RNA_llps
 """
 __author__ = "Naoto Hori"
 
+import sys
+print("sys.path =", sys.path)
+
 import os
 import sys
 import time
-import itertools as it
 import argparse
 from datetime import datetime
 from math import sqrt, pi, cos, log
@@ -18,9 +20,9 @@ from openmm import unit
 from openmm import app
 import openmm as omm
 
-from .sis_params import SISForceField
-from .control import Control
-from .utils import *
+from unisis_omm.sis_params import SISForceField
+from unisis_omm.control import Control
+from unisis_omm.utils import *
 
 """
 * Following modules will be imported later if needed.
@@ -190,7 +192,7 @@ def main():
         ctrl.xml = args.xml
     # If neigher --xml or 'xml' in TOML exist, try to find the default xml file.
     elif ctrl.xml is None:
-        ctrl.xml = os.path.dirname(os.path.realpath(__file__)) + '/' + FILENAME_XML_DEFAULT
+        ctrl.xml = os.path.dirname(os.path.realpath(__file__)) + '/../params/' + FILENAME_XML_DEFAULT
 
     # Argument --ff overrides "ff" in the TOML input
     if args.ff is not None:
@@ -454,11 +456,11 @@ def main():
 
         Parameters:
         -----------
-        temperature : unit.Quantity (Kelvin)
+        temperature : unit.Quantity (unit.kelvin)
             Temperature
         ionic_strength : float
             Ionic strength in M
-        length_per_charge : float 
+        length_per_charge : unit.Quantity (unit.angstrom)
             Length per charge in Angstrom
         cutoff_type : int
             1 for fixed cutoff, 2 for Debye-length based cutoff
@@ -483,8 +485,8 @@ def main():
             raise ValueError(f"Temperature must be positive, got {T_value} K")
         if ionic_strength <= 0:
             raise ValueError(f"Ionic strength must be positive, got {ionic_strength} M")
-        if length_per_charge <= 0:
-            raise ValueError(f"Length per charge must be positive, got {length_per_charge} Å")
+        if length_per_charge.value_in_unit(unit.angstrom) <= 0:
+            raise ValueError(f"Length per charge must be positive, got {length_per_charge}")
         if cutoff_type not in [1, 2]:
             raise ValueError(f"Cutoff type must be 1 or 2, got {cutoff_type}")
         if cutoff_factor <= 0:
@@ -525,13 +527,13 @@ def main():
         print(f"    Debye-Huckel electrostatics:")
         print(f"        Ionic strength: {ionic_strength} M")
         print(f"        Temperature: {temperature}")
-        print(f"        Dielectric constant (T dependent): {diele:.2f}")
-        print(f"        Bjerrum length: {lb:.3f}")
-        print(f"        Reduced charge: {Zp:.3f}")
-        print(f"        Debye length (lambda_D): {lambdaD:.3f}")
-        print(f"        Cutoff: {cutoff:.3f}")
-        print(f"        Scale: {scale:.6e}")
-        print(f"        Screening parameter (kappa): {kappa:.6f} Å⁻¹")
+        print(f"        Dielectric constant (T dependent): {diele}")
+        print(f"        Bjerrum length: {lb}")
+        print(f"        Reduced charge: {Zp}")
+        print(f"        Debye length (lambda_D): {lambdaD}")
+        print(f"        Cutoff: {cutoff}")
+        print(f"        Scale: {scale}")
+        print(f"        Screening parameter (kappa): {kappa}")
 
         return cutoff, scale, kappa, Zp
 
