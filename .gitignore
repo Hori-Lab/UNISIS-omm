@@ -3,3 +3,4 @@ examples/**/out
 examples/**/err
 examples/**/md*
 *.egg-info/
+build/

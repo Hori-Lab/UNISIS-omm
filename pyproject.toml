@@ -27,3 +27,5 @@ ML = ["torch", "openmmtorch"]
 [tool.setuptools]
 packages = ["unisis_omm"]
 
+[tool.setuptools.package-data]
+"unisis_omm" = ["rna_cg2.xml"]

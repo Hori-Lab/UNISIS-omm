@@ -17,6 +17,11 @@ from openmm import unit
 from openmm import app
 import openmm as omm
 
+if __name__ == "__main__":
+    # Add .. to the path so that this can be executed directly as a script.
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+    print('.. added')
+
 from unisis_omm.sis_params import SISForceField
 from unisis_omm.control import Control
 from unisis_omm.utils import *
@@ -32,19 +37,20 @@ from unisis_omm.utils import *
     from dcd import DcdFile
 """
 
-# For timing
-t0 = time.time()
-
-################################################
-#         Constants
-################################################
-#KELVIN_TO_KT = unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB / unit.kilocalorie_per_mole
-#print KELVIN_TO_KT
-FILENAME_XML_DEFAULT = 'rna_cg2.xml'
-u_A = unit.angstrom
-u_kcalmol = unit.kilocalorie_per_mole
-
 def main():
+
+    # For timing
+    t0 = time.time()
+
+    ################################################
+    #         Constants
+    ################################################
+    #KELVIN_TO_KT = unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB / unit.kilocalorie_per_mole
+    #print KELVIN_TO_KT
+    FILENAME_XML_DEFAULT = 'rna_cg2.xml'
+    u_A = unit.angstrom
+    u_kcalmol = unit.kilocalorie_per_mole
+
     ################################################
     #          Parser
     ################################################
@@ -189,7 +195,7 @@ def main():
         ctrl.xml = args.xml
     # If neigher --xml or 'xml' in TOML exist, try to find the default xml file.
     elif ctrl.xml is None:
-        ctrl.xml = os.path.dirname(os.path.realpath(__file__)) + '/../params/' + FILENAME_XML_DEFAULT
+        ctrl.xml = os.path.join(os.path.dirname(os.path.realpath(__file__)), FILENAME_XML_DEFAULT)
 
     # Argument --ff overrides "ff" in the TOML input
     if args.ff is not None:
@@ -1547,4 +1553,5 @@ def main():
                 f.close()
 
 if __name__ == "__main__":
+
     main()
