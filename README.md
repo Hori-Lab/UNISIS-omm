@@ -1,6 +1,8 @@
 # OpenMM scripts to run UNISIS RNA simulations
 
-## OpenMM environment
+## Installation
+
+### OpenMM environment
 
 OpenMM can be installed by `mamba`/`conda`.
 
@@ -12,6 +14,14 @@ It is also pre-installed on the Pharmacy HPC.
 
 ```
 [bluto:] $ module load openmm
+```
+
+### Install from source
+
+```bash
+git clone https://github.com/Hori-Lab/unisis-omm.git
+cd unisis-omm
+pip install -e .
 ```
 
 ## How to run simulations with a neural-network potential (NNP)
@@ -72,18 +82,18 @@ Submit your job by the following command.
 (For GPU)
 
 ```
-sis-torch.py  --tmyaml simulate.yaml \
-              --ff htv23_nnp_dihexp.ff \
-              --cuda \
-              1> out 2> err
+unisis-omm  --tmyaml simulate.yaml \
+            --ff htv23_nnp_dihexp.ff \
+            --cuda \
+            1> out 2> err
 ```
 
 (Otherwise)
 
 ```
-sis-torch.py  --tmyaml simulate.yaml \
-              --ff htv23_nnp_dihexp.ff \
-              1> out 2> err
+unisis-omm  --tmyaml simulate.yaml \
+            --ff htv23_nnp_dihexp.ff \
+            1> out 2> err
 ```
 
 An example HTCondor script is [condor.txt](https://github.com/Hori-Lab/sismm/tree/main/examples/TMnet_T2HP/condor.txt).
@@ -93,11 +103,11 @@ An example HTCondor script is [condor.txt](https://github.com/Hori-Lab/sismm/tre
 You can restart a simulation using `*.rst` file by adding `-r` or `--restart` option in the input command.
 
 ```
-sis-torch.py --tmyaml simulate.yaml \
-             --ff htv23_nnp_dihexp.ff \
-             --restart ./run1/md.rst \
-             --cuda \
-             1> out 2> err
+unisis-omm --tmyaml simulate.yaml \
+           --ff htv23_nnp_dihexp.ff \
+           --restart ./run1/md.rst \
+           --cuda \
+           1> out 2> err
 ```
 
 ***Important***  
