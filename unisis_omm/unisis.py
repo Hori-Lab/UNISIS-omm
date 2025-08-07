@@ -37,63 +37,8 @@ from unisis_omm.utils import *
     from dcd import DcdFile
 """
 
-def main():
-
-    # For timing
-    t0 = time.time()
-
-    ################################################
-    #         Constants
-    ################################################
-    #KELVIN_TO_KT = unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB / unit.kilocalorie_per_mole
-    #print KELVIN_TO_KT
-    FILENAME_XML_DEFAULT = 'rna_cg2.xml'
-    u_A = unit.angstrom
-    u_kcalmol = unit.kilocalorie_per_mole
-
-    ################################################
-    #          Parser
-    ################################################
-
-    parser = argparse.ArgumentParser(description='OpenMM script for the SIS-RNA model',
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-
-    parser.add_argument('input', type=str, help='TOML format input file (use --tmyaml if it is TorchMD YAML)')
-
-    parser.add_argument('--tmyaml', action='store_true', help='Use this flag when the input is TorcMD format YAML file.')
-
-    parser.add_argument('--ff', type=str, help='TOML format force-field file')
-    parser.add_argument('--xml', type=str, default=None, help='XML file for topology information')
-    parser.add_argument('-x','--statexml', type=str, default=None, help='State XML file to restart')
-    parser.add_argument('-c','--checkpoint', type=str, default=None, help='Checkpoint file to restart')
-    parser.add_argument('-r','--restart', type=str, default=None, help='Checkpoint file to restart (deprecated)')
-
-    parser.add_argument('--cuda', action='store_true')
-
-    #parser_device = parser.add_mutually_exclusive_group()
-    #parser_device.add_argument('--cpu', action='store_true', default=False)
-    #parser_device.add_argument('--cuda', action='store_true', default=False)
-
-    parser.add_argument('--platform', type=str, default=None, help='Platform')
-    parser.add_argument('--nthreads', type=int, default=None, help='Number of CPU threads')
-    #parser.add_argument('--CUDAdevice', type=str, default=None,
-    #                    help='CUDA device ID')
-
-    args = parser.parse_args()
-
-    if args.nthreads:
-        if args.platform != 'CPU':
-            raise argparse.ArgumentTypeError('--nthreads option can be used only when --platform=CPU')
-
-    if args.checkpoint and args.restart:
-        raise argparse.ArgumentTypeError('Checkpoint and restart cannot be used together.')
-
-    if (args.checkpoint or args.restart) and args.statexml:
-        raise argparse.ArgumentTypeError('State XML and checkpoint (restart) cannot be used together.')
-
-    ################################################
-    #   Output the program and execution information
-    ################################################
+def print_version():
+    """ Output the program and execution information """
     print('Program: OpenMM script for the SIS RNA model')
     print('    File: ' + os.path.realpath(__file__))
     try:
@@ -129,6 +74,77 @@ def main():
         print(' '+s, end='')
     print('')
     print('')
+
+
+def main():
+
+    # For timing
+    t0 = time.time()
+
+    ################################################
+    #         Constants
+    ################################################
+    #KELVIN_TO_KT = unit.AVOGADRO_CONSTANT_NA * unit.BOLTZMANN_CONSTANT_kB / unit.kilocalorie_per_mole
+    #print KELVIN_TO_KT
+    FILENAME_XML_DEFAULT = 'rna_cg2.xml'
+    u_A = unit.angstrom
+    u_kcalmol = unit.kilocalorie_per_mole
+
+    ################################################
+    #          Parser
+    ################################################
+    # To check --version
+    pre_parser = argparse.ArgumentParser(add_help=False)
+    pre_parser.add_argument('-v', '--version', action='store_true')
+    args, remaining_args = pre_parser.parse_known_args()
+
+    if args.version:
+        print_version()
+        sys.exit(0)
+
+    # Normal parser
+    parser = argparse.ArgumentParser(description='OpenMM script for the UNISIS model',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument("-v", "--version", action="store_true", help="Show version information and exit")
+    parser.add_argument('input', type=str, help='TOML format input file (use --tmyaml if it is TorchMD YAML)')
+
+    parser.add_argument('--tmyaml', action='store_true', help='Use this flag when the input is TorcMD format YAML file.')
+
+    parser.add_argument('--ff', type=str, help='TOML format force-field file')
+    parser.add_argument('--xml', type=str, default=None, help='XML file for topology information')
+    parser.add_argument('-x','--statexml', type=str, default=None, help='State XML file to restart')
+    parser.add_argument('-c','--checkpoint', type=str, default=None, help='Checkpoint file to restart')
+    parser.add_argument('-r','--restart', type=str, default=None, help='Checkpoint file to restart (deprecated)')
+
+    parser.add_argument('--cuda', action='store_true')
+
+    #parser_device = parser.add_mutually_exclusive_group()
+    #parser_device.add_argument('--cpu', action='store_true', default=False)
+    #parser_device.add_argument('--cuda', action='store_true', default=False)
+
+    parser.add_argument('--platform', type=str, default=None, help='Platform')
+    parser.add_argument('--nthreads', type=int, default=None, help='Number of CPU threads')
+    #parser.add_argument('--CUDAdevice', type=str, default=None,
+    #                    help='CUDA device ID')
+
+    args = parser.parse_args(remaining_args)
+
+    if args.nthreads:
+        if args.platform != 'CPU':
+            raise argparse.ArgumentTypeError('--nthreads option can be used only when --platform=CPU')
+
+    if args.checkpoint and args.restart:
+        raise argparse.ArgumentTypeError('Checkpoint and restart cannot be used together.')
+
+    if (args.checkpoint or args.restart) and args.statexml:
+        raise argparse.ArgumentTypeError('State XML and checkpoint (restart) cannot be used together.')
+
+
+    ################################################
+    #   Output the program and execution information
+    ################################################
+    print_version()
 
 
     ################################################
