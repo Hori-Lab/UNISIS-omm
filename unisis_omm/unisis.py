@@ -9,7 +9,6 @@ import os
 import sys
 import time
 import argparse
-from importlib.metadata import version
 from datetime import datetime
 from math import sqrt, pi, cos, log
 
@@ -26,7 +25,6 @@ from unisis_omm.sis_params import SISForceField
 from unisis_omm.control import Control
 from unisis_omm.utils import *
 
-__version__ = version("unisis_omm")
 
 """
 * Following modules will be imported later if needed.
@@ -98,6 +96,15 @@ def main():
     ################################################
     print('Program: OpenMM script for the SIS RNA model')
     print('    File: ' + os.path.realpath(__file__))
+    try:
+        from setuptools_scm import get_version
+        __version__ = get_version(root="..", relative_to=__file__)
+    except Exception:
+        try:
+            from importlib.metadata import version
+            __version__ = version("unisis_omm")
+        except Exception:
+            __version__ = "unknown"
     ## Output Git hash
     #try:
     #    import subprocess
