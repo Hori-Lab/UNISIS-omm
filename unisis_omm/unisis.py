@@ -9,6 +9,7 @@ import os
 import sys
 import time
 import argparse
+from importlib.metadata import version
 from datetime import datetime
 from math import sqrt, pi, cos, log
 
@@ -20,11 +21,12 @@ import openmm as omm
 if __name__ == "__main__":
     # Add .. to the path so that this can be executed directly as a script.
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-    print('.. added')
 
 from unisis_omm.sis_params import SISForceField
 from unisis_omm.control import Control
 from unisis_omm.utils import *
+
+__version__ = version("unisis_omm")
 
 """
 * Following modules will be imported later if needed.
@@ -96,14 +98,15 @@ def main():
     ################################################
     print('Program: OpenMM script for the SIS RNA model')
     print('    File: ' + os.path.realpath(__file__))
-    # Output Git hash
-    try:
-        import subprocess
-        src_path = os.path.dirname(os.path.realpath(__file__))
-        h = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=src_path, stderr=subprocess.DEVNULL).decode('ascii').strip()
-        print('    Git hash: ' + h)
-    except:
-        pass
+    ## Output Git hash
+    #try:
+    #    import subprocess
+    #    src_path = os.path.dirname(os.path.realpath(__file__))
+    #    h = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=src_path, stderr=subprocess.DEVNULL).decode('asc#ii').strip()
+    #    print('    Git hash: ' + h)
+    #except:
+    #    pass
+    print('    Version: ' + __version__)
     print('')
 
     print('Execution:')

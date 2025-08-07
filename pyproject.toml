@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools>=61.0", "setuptools_scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "unisis-omm"
-version = "0.1.0"
+dynamic = ["version"]
 description = "OpenMM script to run UNISIS-RNA model simulations"
 readme = "README.md"
 license-files = ["LICENSE"]
@@ -29,3 +29,5 @@ packages = ["unisis_omm"]
 
 [tool.setuptools.package-data]
 "unisis_omm" = ["rna_cg2.xml"]
+
+[tool.setuptools_scm]
